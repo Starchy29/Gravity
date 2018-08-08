@@ -2,6 +2,13 @@ import pygame
 import sys
 pygame.init()
 
+"""
+ls
+git add <filename>
+
+git commit -am "message"
+git push
+"""
 black = (  10,   10,   10)
 white = (255, 255, 255)
 blue =  (  0,   0, 255)
@@ -29,7 +36,7 @@ class Player(object):
     blockedL = False
     blockedU = False
     blockedD = False
-    def __init__(self, color, width, height, locX, locY):
+    def __init__(self, color, locX, locY, width, height):
         self.color = color
         self.width = width
         self.height = height
@@ -72,6 +79,7 @@ class Block(object):
     width = 80
     height = 80
     color = lightGrey
+    falling = False
     fallSpeed = 0
     def __init__(self, locX, locY):
         self.locX = locX
@@ -79,40 +87,48 @@ class Block(object):
     def draw(self):
         pygame.draw.rect(screen, self.color, (self.locX, self.locY, self.width, self.height), 0)
     def movement(self):
-        if canMove(level, "D", self.locX, self.locY, self.width, self.height):
+        #falling
+        if canMove(level, "D", self.locX, self.locY, self.width, self.height) and not self.headLand(player.locX, player.locY, player.width, player.height):
             self.locY += 0.01 + self.fallSpeed
             self.fallSpeed += 0.01
+            self.falling = True
         else:
             self.fallSpeed = 0
+            self.falling = False
         #pushing
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_RIGHT] and player.blockedR and canMove(level, "R", self.locX, self.locY, self.width, self.height):
+        if keys[pygame.K_RIGHT] and not self.falling and player.blockedR and canMove(level, "R", self.locX, self.locY, self.width, self.height):
             self.locX += 0.25
             player.locX += 0.25
-        if keys[pygame.K_LEFT] and player.blockedL and canMove(level, "L", self.locX, self.locY, self.width, self.height):
+        if keys[pygame.K_LEFT] and not self.falling and player.blockedL and canMove(level, "L", self.locX, self.locY, self.width, self.height):
             self.locX -= 0.25
             player.locX -= 0.25
     def playerBlock(self, direction, playerLocX, playerLocY, playerWidth, playerHeight):
         if direction == "R":
-            if playerLocX + playerWidth == self.locX and self.locY - playerHeight < player.locY < self.locY + self.height:
-                    player.blockedR = True
+            if playerLocX + playerWidth == self.locX and self.locY - playerHeight < playerLocY < self.locY + self.height:
+                return False
             else:
-                    player.blockedR = False
+                return True
         if direction == "L":
-            if player.locX == self.locX + self.width and self.locY - player.height < player.locY < self.locY + self.width:
-                player.blockedL = True
+            if playerLocX == self.locX + self.width and self.locY - playerHeight < playerLocY < self.locY + self.width:
+                return False
             else:
-                player.blockedL = False
+                return True
         if direction == "U":
-            if self.locY + (self.height / 2) < player.locY <= self.locY + self.height and self.locX - player.width < player.locX < self.locX + self.width:
-                player.blockedU = True
+            if self.locY + (self.height / 2) < playerLocY <= self.locY + self.height and self.locX - playerWidth < playerLocX < self.locX + self.width:
+                return False
             else:
-                player.blockedU = False
+                return True
         if direction == "D":
-            if self.locY - player.height <= player.locY < self.locY + (self.height / 2) - player.height and self.locX - player.width < player.locX < self.locX + self.width:
-                player.blockedD = True
+            if self.locY - playerHeight <= playerLocY < self.locY + (self.height / 2) - playerHeight and self.locX - playerWidth < playerLocX < self.locX + self.width:
+                return False
             else:
-                player.blockedD = False
+                return True
+    def headLand(self, playerLocX, playerLocY, playerWidth, playerHeight):
+        if playerLocY <= self.locY + self.height <  playerLocY + (playerHeight / 2) and playerLocX - self.width < self.locX < playerLocX + playerWidth:
+            return True
+        else:
+            return False
 
 #functions
 def drawLevel(level):
@@ -142,7 +158,7 @@ def drawLevel(level):
 def canMove(level, direction, locX, locY, width, height):
     if level == 0:
         if direction == "R":
-            if locX >= displayWidth - width or locX == 300 - width and 500 - height < locY < 520 :
+            if locX >= displayWidth - width or 300 == locX + width  and 500 - height < locY < 520 :
                 return False
             else:
                 return True
@@ -169,11 +185,11 @@ def upReleased():
         return True
 
 #set up
-player = Player(purple, 20, 40, 0, 340)
+player = Player(purple, 0, 340, 20, 40)
 
-block0 = [Block(400, 100)]
-block1 = [Block(425, 320)]
-blocks = [block0, block1]
+blocks0 = [Block(450, 100), Block(300, 100)]
+blocks1 = [Block(425, 320)]
+blocks = [blocks0, blocks1]
 
 screen = pygame.display.set_mode((displayWidth, displayHeight))
 pygame.display.set_caption("LabGame")
@@ -198,6 +214,22 @@ while True:
         checksL.append(block.playerBlock("L", player.locX, player.locY, player.width, player.height))
         checksU.append(block.playerBlock("U", player.locX, player.locY, player.width, player.height))
         checksD.append(block.playerBlock("D", player.locX, player.locY, player.width, player.height))
+    if all(checksR) == True:
+        player.blockedR = False
+    else:
+        player.blockedR = True
+    if all(checksL) == True:
+        player.blockedL = False
+    else:
+        player.blockedL = True
+    if all(checksU) == True:
+        player.blockedU = False
+    else:
+        player.blockedU = True
+    if all(checksD) == True:
+        player.blockedD = False
+    else:
+        player.blockedD = True
         
     for block in blocks[level]:
         block.movement()
