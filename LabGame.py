@@ -4,10 +4,10 @@ pygame.init()
 
 """
 ls
-git add <filename>
-
 git commit -am "message"
 git push
+
+git add <filename>
 """
 black = (  10,   10,   10)
 white = (255, 255, 255)
@@ -45,7 +45,6 @@ class Player(object):
     def draw(self):
         pygame.draw.rect(screen, self.color, (self.locX, self.locY, self.width, self.height,), 0)
     def movement(self):
-        keys = pygame.key.get_pressed()
         #walking
         if keys[pygame.K_RIGHT] and canMove(level, "R", self.locX, self.locY, self.width, self.height) and not self.blockedR:
             self.locX += 0.5
@@ -80,6 +79,9 @@ class Block(object):
     height = 80
     color = lightGrey
     falling = False
+    justPushedR = False
+    justPushedL = False
+    pushCount = 0
     fallSpeed = 0
     def __init__(self, locX, locY):
         self.locX = locX
@@ -96,13 +98,25 @@ class Block(object):
             self.fallSpeed = 0
             self.falling = False
         #pushing
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_RIGHT] and not self.falling and player.blockedR and canMove(level, "R", self.locX, self.locY, self.width, self.height):
-            self.locX += 0.25
-            player.locX += 0.25
-        if keys[pygame.K_LEFT] and not self.falling and player.blockedL and canMove(level, "L", self.locX, self.locY, self.width, self.height):
-            self.locX -= 0.25
-            player.locX -= 0.25
+        if keys[pygame.K_RIGHT] and not self.justPushedR and not self.falling and not self.playerBlock("R", player.locX, player.locY, player.width, player.height) and canMove(level, "R", self.locX, self.locY, self.width, self.height):
+            self.locX += 0.5
+            player.locX += 0.5
+            self.justPushedR = True
+            self.pushCount = 0
+        if self.justPushedR == True and self.pushCount < 1:
+            self.pushCount += 1
+        else:
+            self.justPushedR = False
+
+        if keys[pygame.K_LEFT] and not self.justPushedL and not self.falling and not self.playerBlock("L", player.locX, player.locY, player.width, player.height) and canMove(level, "L", self.locX, self.locY, self.width, self.height):
+            self.locX -= 0.5
+            player.locX -= 0.5
+            self.justPushedL = True
+            self.pushCount = 0
+        if self.justPushedL == True and self.pushCount < 1:
+            self.pushCount += 1
+        else:
+            self.justPushedL = False
     def playerBlock(self, direction, playerLocX, playerLocY, playerWidth, playerHeight):
         if direction == "R":
             if playerLocX + playerWidth == self.locX and self.locY - playerHeight < playerLocY < self.locY + self.height:
@@ -185,9 +199,9 @@ def upReleased():
         return True
 
 #set up
-player = Player(purple, 0, 340, 20, 40)
+player = Player(purple, 200, 340, 20, 40)
 
-blocks0 = [Block(450, 100), Block(300, 100)]
+blocks0 = [Block(400, 300), Block(60, 100)]
 blocks1 = [Block(425, 320)]
 blocks = [blocks0, blocks1]
 
@@ -204,12 +218,14 @@ while True:
             pygame.quit(); sys.exit();
             break
 
+    keys = pygame.key.get_pressed()
+    
     #block stuff
+    checksR = []
+    checksL = []
+    checksU = []
+    checksD = []
     for block in blocks[level]:
-        checksR = []
-        checksL = []
-        checksU = []
-        checksD = []
         checksR.append(block.playerBlock("R", player.locX, player.locY, player.width, player.height))
         checksL.append(block.playerBlock("L", player.locX, player.locY, player.width, player.height))
         checksU.append(block.playerBlock("U", player.locX, player.locY, player.width, player.height))
@@ -230,12 +246,12 @@ while True:
         player.blockedD = False
     else:
         player.blockedD = True
-        
+ 
     for block in blocks[level]:
         block.movement()
-    #player stuff
-    player.movement()
 
+    player.movement()
+    
     drawLevel(level)
 
     
