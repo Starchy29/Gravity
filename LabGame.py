@@ -24,7 +24,7 @@ displayWidth = 800
 displayHeight = 600
 screenColor = lightBlue
 gravity = "D"
-level = 1
+level = 4
 
 #classes
 class Player(object):
@@ -134,6 +134,7 @@ class Block(object):
                 self.fallSpeed = 0
                 self.falling = False
         #pushing
+            #player
         if keys[pygame.K_RIGHT] and not playerBlock("R", self.locX, self.locY, self.width, self.height) and canMove(level, "R", player.locX, player.locY, player.width, player.height) and not self.justPushedR and not self.falling and not self.blockedR and canMove(level, "R", self.locX, self.locY, self.width, self.height):
             self.locX += 0.5
             player.locX += 0.5
@@ -152,6 +153,17 @@ class Block(object):
             self.pushCount += 1
         else:
             self.justPushedL = False
+            #door
+        for door in objects[level]:
+            if isinstance(door, PlateDoor):
+                if door.doorBlock("R", self.locX, self.locY, self.width, self.height) and canMove(level, "R", self.locX, self.locY, self.width, self.height):
+                    self.locX += 1
+                if door.doorBlock("L", self.locX, self.locY, self.width, self.height) and canMove(level, "L", self.locX, self.locY, self.width, self.height):
+                    self.locX -= 1
+                if door.doorBlock("U", self.locX, self.locY, self.width, self.height) and canMove(level, "U", self.locX, self.locY, self.width, self.height):
+                    self.locY -= 1
+                if door.doorBlock("D", self.locX, self.locY, self.width, self.height) and canMove(level, "D", self.locX, self.locY, self.width, self.height):
+                    self.locY += 1
     def blockBlock(self, direction, locX, locY, width, height):
         if not (self.locX == locX and self.locY == locY):
             if direction == "R" and (self.locX + self.width == locX and locY - self.height < self.locY < locY + height):
@@ -185,6 +197,10 @@ class PlateDoor(object):
     blockedL = False
     blockedU = False
     blockedD = False
+    playBlockedR = False
+    playBlockedL = False
+    playBlockedU = False
+    playBlockedD = False
     def __init__(self, color, pressDir, plateLocX, plateLocY, doorStartX, doorStartY, doorWidth, doorHeight, doorEndX, doorEndY):
         self.color = color
         self.pressDir = pressDir
@@ -207,37 +223,69 @@ class PlateDoor(object):
         if self.plateLocY - height <= locY <= self.plateLocY + self.plateHeight and self.plateLocX - width < locX < self.plateLocX + self.plateWidth:
             self.triggered = True
     def doorBlock(self, direction, locX, locY, width, height):
-        if direction == "R" and (self.locX + self.width == int(locX) and locY - self.height < self.locY < locY + height):
-            self.blockedR = True
-        if direction == "L" and (self.locX == int(locX) + width and locY - self.height < self.locY < locY + height):
-            self.blockedL = True
-        if direction == "U" and (locY + (height / 2) < self.locY <= locY + height and locX - self.width < self.locX < locX + width):
-            self.blockedU = True
-        if direction == "D" and (locY - self.height <= self.locY < locY + (height / 2) - self.height and locX - self.width < self.locX < locX + width):
-            self.blockedD = True
+        if direction == "R":
+            if (self.locX + self.width == int(locX) and locY - self.height < self.locY < locY + height):
+                if locX == player.locX and locY == player.locY and width == player.width and height == player.height:
+                    self.playBlockedR = True
+                else:
+                    self.blockedR = True
+                return True
+            else:
+                return False
+        if direction == "L":
+            if (self.locX == int(locX) + width and locY - self.height < self.locY < locY + height):
+                if locX == player.locX and locY == player.locY and width == player.width and height == player.height:
+                    self.playBlockedL = True
+                else:
+                    self.blockedL = True
+                return True
+            else:
+                return False
+        if direction == "U":
+            if (locY + (height / 2) < self.locY <= locY + height and locX - self.width < self.locX < locX + width):
+                if locX == player.locX and locY == player.locY and width == player.width and height == player.height:
+                    self.playBlockedU = True
+                else:
+                    self.blockedU = True
+                return True
+            else:
+                return False
+        if direction == "D":
+            if (locY - self.height <= self.locY < locY + (height / 2) - self.height and locX - self.width < self.locX < locX + width):
+                if locX == player.locX and locY == player.locY and width == player.width and height == player.height:
+                    self.playBlockedD = True
+                else:
+                    self.blockedD = True
+                return True
+            else:
+                return False
     def triggerWork(self):
         self.blockedR = False
         self.blockedL = False
         self.blockedU = False
         self.blockedD = False
+        self.playBlockedR = False
+        self.playBlockedL = False
+        self.playBlockedU = False
+        self.playBlockedD = False
         for x in objects[level]:
             if isinstance(x, Block):
                 self.doorBlock("R", x.locX, x.locY, x.width, x.height)
                 self.doorBlock("L", x.locX, x.locY, x.width, x.height)
                 self.doorBlock("U", x.locX, x.locY, x.width, x.height)
                 self.doorBlock("D", x.locX, x.locY, x.width, x.height)
-            self.doorBlock("R", player.locX, player.locY, player.width, player.height)
-            self.doorBlock("L", player.locX, player.locY, player.width, player.height)
-            self.doorBlock("U", player.locX, player.locY, player.width, player.height)
-            self.doorBlock("D", player.locX, player.locY, player.width, player.height)
+        self.doorBlock("R", player.locX, player.locY, player.width, player.height)
+        self.doorBlock("L", player.locX, player.locY, player.width, player.height)
+        self.doorBlock("U", player.locX, player.locY, player.width, player.height)
+        self.doorBlock("D", player.locX, player.locY, player.width, player.height)
         if self.triggered:
-            if self.locY > self.doorEndY and not self.blockedU:
+            if self.locY > self.doorEndY and not self.blockedU and not self.playBlockedU:
                 self.locY -= 1
-            if self.locY < self.doorEndY and not self.blockedD:
+            if self.locY < self.doorEndY and not self.blockedD and not self.playBlockedD:
                 self.locY += 1
-            if self.locX > self.doorEndX and not self.blockedL:
+            if self.locX > self.doorEndX and not self.blockedL and not self.playBlockedL:
                 self.locX -= 1
-            if self.locX < self.doorEndX and not self.blockedR:
+            if self.locX < self.doorEndX and not self.blockedR and not self.playBlockedR:
                 self.locX += 1
             if self.pressDir == "D":
                 self.plateImageY = self.plateLocY + self.plateHeight - 2
@@ -256,16 +304,21 @@ class PlateDoor(object):
                 self.locX += 1
             self.plateImageY = self.plateLocY
             self.plateImageX = self.plateLocX
+
 gravSwapColor = lightGreen
 class GravSwap(object):
     color = lightGreen
     newPress = False
     stillPress = True
-    def __init__(self, locX, locY):
+    def __init__(self, rotation, locX, locY):
+        self.rotation = rotation
         self.locX = locX
         self.locY = locY
     def draw(self):
-        pygame.draw.line(screen, black, (self.locX, self.locY - 30), (self.locX, self.locY + 30), 8)
+        if self.rotation == "V":
+            pygame.draw.line(screen, black, (self.locX, self.locY - 30), (self.locX, self.locY + 30), 8)
+        elif self.rotation == "H":
+            pygame.draw.line(screen, black, (self.locX - 30, self.locY), (self.locX + 30, self.locY), 8)
         pygame.draw.circle(screen, black, (self.locX, self.locY), 20, 0)
         pygame.draw.circle(screen, gravSwapColor, (self.locX, self.locY), 16, 0)
         pygame.draw.circle(screen, black, (self.locX, self.locY), 5, 0)
@@ -335,6 +388,35 @@ def drawLevel(level):
         pygame.draw.rect(screen, black, (510, 280, 100, 40), 0) #island
         pygame.draw.rect(screen, black, (720, 80, 40, 40), 0) #block stopper top right
         pygame.draw.rect(screen, black, (720, 480, 80, 40), 0) #block stopper bottom right
+    elif level == 3:
+        pygame.draw.rect(screen, black, (0, 520, displayWidth, 80), 0) #bottom
+        pygame.draw.rect(screen, black, (0, 0, displayWidth, 180), 0) #ceiling
+        pygame.draw.rect(screen, black, (0, 180, 40, 220), 0) #left wall
+        pygame.draw.rect(screen, black, (0, 480, 80, 40), 0) #block stopper bottom left
+        pygame.draw.rect(screen, black, (40, 180, 40, 40), 0) #block stopper top left
+        pygame.draw.rect(screen, black, (470, 180, 30, 40), 0) #block stopper top right
+        pygame.draw.rect(screen, black, (720, 480, 40, 40), 0) #block stopper bottom right
+        pygame.draw.rect(screen, black, (470, 320, 30, 100), 0) #peninsula left half
+        pygame.draw.rect(screen, black, (500, 180, 30, 240), 0) #peninsula right half
+        pygame.draw.rect(screen, black, (215, 320, 100, 40), 0) #island
+        pygame.draw.rect(screen, black, (760, 320, 40, 200), 0) #below exit
+    elif level == 4:
+        pygame.draw.rect(screen, black, (0, 520, displayWidth, 80), 0) #bottom
+        pygame.draw.rect(screen, black, (0, 0, 760, 80), 0) #ceiling
+        pygame.draw.rect(screen, black, (760, 0, 40, 400), 0) #right wall
+        pygame.draw.rect(screen, black, (0, 80, 40, 320), 0) #left wall
+        pygame.draw.rect(screen, black, (520, 360, 240, 40), 0) #peninsula
+        pygame.draw.rect(screen, black, (360, 200, 320, 40), 0) #island
+        pygame.draw.rect(screen, black, (320, 200, 40, 200), 0) #stair last
+        pygame.draw.rect(screen, black, (280, 280, 40, 120), 0) #stair middle
+        pygame.draw.rect(screen, black, (240, 320, 40, 80), 0) #stair first
+        pygame.draw.rect(screen, black, (720, 300, 40, 60), 0) #block stopper bottom right
+        pygame.draw.rect(screen, black, (720, 80, 40, 40), 0) #block stopper top right
+        pygame.draw.rect(screen, black, (0, 480, 80, 40), 0) #block stopper bottom left
+        pygame.draw.rect(screen, black, (40, 80, 40, 40), 0) #block stopper top left
+        pygame.draw.rect(screen, black, (640, 140, 40, 60), 0) #block stopper top middle
+        pygame.draw.rect(screen, black, (440, 240, 40, 40), 0) #jumping block
+        pygame.draw.rect(screen, black, (360, 240, 80, 200), 0) #block jump preventer
     pygame.display.update()
     
 def canMove(level, direction, locX, locY, width, height):
@@ -387,7 +469,7 @@ def canMove(level, direction, locX, locY, width, height):
             else:
                 return True
         if direction == "L":
-            if (locX == 610 and 280 - height < locY < 320) or (locX == 360 and (220 - height < locY < 470 or locY < 120)) or (locX == 330 and 120 - height < locY < 240) or (locX == 260 and 240 - height < locY) or (locX == 40 and locY < 440):
+            if (locX == 630 and 280 - height < locY < 320) or (locX == 360 and (220 - height < locY < 470 or locY < 120)) or (locX == 330 and 120 - height < locY < 240) or (locX == 260 and 240 - height < locY) or (locX == 40 and locY < 440):
                 return False
             else:
                 return True
@@ -401,7 +483,49 @@ def canMove(level, direction, locX, locY, width, height):
                 return False
             else:
                 return True
-
+    elif level == 3:
+        if direction == "R":
+            if (locX + width == 215 and 320 - height < locY < 360) or (locX + width == 470 and (320 - height < locY < 420 or locY < 220)) or (locX + width == 500 and locY < 320) or (locX + width == 720 and 480 - height < locY) or (locX + width == 760 and 320 - height < locY ):
+                return False
+            else:
+                return True
+        if direction == "L":
+            if (locX == 530 and locY < 420) or (locX == 315 and 320 - height < locY < 360) or (locX == 80 and (480 - height < locY or locY < 220)) or (locX == 40 and locY < 400):
+                return False
+            else:
+                return True
+        if direction == "U":
+            if (locY <= 400 and locX < 40) or (340 < locY <= 360 and 215 - width < locX < 315) or (200 < locY <= 220 and (470 - width < locX < 500 or locX < 80)) or (locY <= 180):
+                return False
+            else:
+                return True
+        if direction == "D":
+            if (340 > locY + height >= 320 and (215 - width < locX < 315 or 470 - width < locX < 500)) or (340 > locY + height >= 320 and 760 - width < locX) or (500 > locY + height >= 480 and (720 - width < locX or locX < 80)) or (locY + height >= 520):
+                return False
+            else:
+                return True
+    elif level == 4:
+        if direction == "R":
+            if (locX + width == 240 and 320 - height < locY < 400) or (locX + width == 280 and 280 - height < locY < 320) or (locX + width == 320 and 200 - height < locY < 300) or (locX + width == 360 and 400 - height < locY < 440) or (locX + width == 400 and 400 - height < locY < 440) or (locX + width == 520 and 360 - height < locY < 400) or (locX + width == 640 and 140 - height < locY < 180) or (locX + width == 720 and (300 - height < locY < 360 or locY < 120)) or (locX + width == 760 and locY < 320):
+                return False
+            else:
+                return True
+        if direction == "L":
+            if (locX == 680 and 140 - height < locY < 240) or (locX == 480 and 240 - height < locY < 280) or (locX == 440 and 240 - height < locY < 440) or (locX == 80 and (480 - height < locY or locY < 120)) or (locX == 40 and locY < 400):
+                return False
+            else:
+                return True
+        if direction == "U":
+            if (420 < locY <= 440 and 360 - width < locX < 440) or (380 < locY <= 400 and (240 - width < locX < 400 or locX < 40 or locX > 520 - width)) or (240 < locY <= 280 and 440 - width < locX < 480) or (260 < locY <= 280 and 400 - width < locX < 440) or (220 < locY <= 240 and 400 - width < locX < 680) or (100 < locY <= 120 and (720 - width < locX or locX < 80)) or (locY <= 80):
+                return False
+            else:
+                return True
+        if direction == "D":
+            if (160 > locY + height >= 140 and 640 - width < locX < 680) or (220 > locY + height >= 200 and 320 - width < locX < 680) or (300 > locY + height >= 280 and 280 - width < locX < 320) or (340 > locY + height >= 320 and 240 - width < locX < 280) or (320 > locY + height >= 300 and 720 - width < locX) or (380 > locY + height >= 360 and 520 - width < locX) or (500 > locY + height >= 480 and locX < 80) or (locY + height >= 520):
+                return False
+            else:
+                return True
+            
 def playerBlock(direction, locX, locY, width, height):
         if direction == "R":
             if player.locX + player.width == locX and locY - player.height < player.locY < locY + height:
@@ -431,10 +555,15 @@ def winCheck():
         global level
         level += 1
         global gravity
-        graviy = "D"
+        global screenColor
+        gravity = "D"
+        screencolor = lightBlue
         player.locX = -60
         if level == 2:
             player.locY = 480
+        elif level == 3 or level == 4:
+            player.locY = 440
+
         
 def upReleased():
     keyPressed = pygame.key.get_pressed()
@@ -445,12 +574,18 @@ def upReleased():
 
 #set up
 player = Player(purple, -60, 320, 20, 40)
+if level == 2:
+    player.locY = 480
+if level == 3 or level == 4:
+    player.locY = 440
 
-objects0 = [Block(400, 300), GravSwap(400, 570), PlateDoor(red, "D", 390, 495, 260, 520, 40, 80, 260, 320)]
+objects0 = [Block(400, 300), Block(400, 200), GravSwap("V", 400, 570), PlateDoor(red, "D", 390, 495, 460, 520, 40, 80, 260, 520)]
 objects1 = [Block(425, 320), PlateDoor(red, "D", 100, 515, 780, 280, 20, 80, 780, 200)]
-objects2 = [Block(520, 440), GravSwap(150, 490), GravSwap(435, 490), GravSwap(435, 110), GravSwap(260, 150), PlateDoor(red, "U", 530, 80, 760, 400, 40, 80, 760, 320)]
-objects3 = []
-objects = [objects0, objects1, objects2, objects3]
+objects2 = [Block(520, 440), GravSwap("V", 150, 490), GravSwap("V", 435, 490), GravSwap("V", 435, 110), GravSwap("V", 260, 150), PlateDoor(red, "U", 530, 80, 760, 400, 40, 80, 760, 320)]
+objects3 = [Block(225, 440), Block(560, 440), GravSwap("V", 265, 390), GravSwap("V", 130, 210), PlateDoor(red, "D", 100, 515, 760, 180, 40, 140, 760, 40), PlateDoor(blue, "D", 235, 315, 470, 420, 60, 100, 470, 320)]
+objects4 = [Block(320, 120), Block(110, 440), GravSwap("H", 730, 220), GravSwap("V", 430, 110), GravSwap("H", 70, 370), PlateDoor(red, "U", 120, 80, 520, 400, 40, 120, 320, 400), PlateDoor(blue, "D", 370, 515, 520, 80, 40, 120, 520, 240)]
+objects5 = []
+objects = [objects0, objects1, objects2, objects3, objects4, objects5]
 
 screen = pygame.display.set_mode((displayWidth, displayHeight))
 pygame.display.set_caption("LabGame")
@@ -494,6 +629,7 @@ while True:
     else:
         player.blockedD = True
 
+    #Grav swap stuff
     for x in objects[level]:
         if isinstance(x, GravSwap):
             x.pressCheck()
