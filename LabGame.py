@@ -1,5 +1,6 @@
 import pygame
 import sys
+import math
 pygame.init()
 
 """
@@ -11,13 +12,17 @@ git add <filename>
 """
 black = (  10,   10,   10)
 white = (255, 255, 255)
-blue =  (  0,   0, 255)
+blue = (  0,   0, 255)
 green = (  0, 255,   0)
-red =   (200,   40,   40)
+red = (200,   40,   40)
 lightBlue = (103, 173, 255)
+lightPurple = (255, 170, 205)
 lightGreen = (130, 255, 130)
-purple = (160, 10, 200)
+lightRed = (230,   60,   60)
+purple = (180, 30, 230)
+playerColor = (160, 10, 200)
 lightGrey = (205, 205, 205)
+orange = (255, 180, 40)
 
 #starting variables
 displayWidth = 800
@@ -67,6 +72,7 @@ class Player(object):
             if self.jumpHeight >= 140:
                 self.jumping = False
                 self.falling = True
+
             #falling
             if (upReleased() or not self.jumping or not (canMove(level, "U", self.locX, self.locY, self.width, self.height) and not self.blockedU)) and canMove(level, "D", self.locX, self.locY, self.width, self.height) and not self.blockedD:
                 self.locY += 0.01 + self.fallSpeed
@@ -76,6 +82,16 @@ class Player(object):
             if not canMove(level, "D", self.locX, self.locY, self.width, self.height) or self.blockedD:
                 self.falling = False
                 self.fallSpeed = 0
+
+            #treadmill pushing
+            for x in objects[level]:
+                if isinstance(x, Treadmill):
+                    if not playerBlock("D", x.locX, x.locY, x.width, x.height) and x.spinCount:
+                        if x.rotation == "clock":
+                            self.locX += 0.5
+                        if x.rotation == "counter":
+                            self.locX -= 0.5
+                            
         elif gravity == "U":
             #jumping
             if self.newJump and not self.jumping and not self.falling and canMove(level, "D", self.locX, self.locY, self.width, self.height) and not self.blockedD:
@@ -96,6 +112,28 @@ class Player(object):
             if not canMove(level, "U", self.locX, self.locY, self.width, self.height) or self.blockedU:
                 self.falling = False
                 self.fallSpeed = 0
+            #treadmill pushing
+            for x in objects[level]:
+                if isinstance(x, Treadmill):
+                    if not playerBlock("U", x.locX, x.locY, x.width, x.height) and x.spinCount:
+                        if x.rotation == "clock":
+                            self.locX -= 0.5
+                        if x.rotation == "counter":
+                            self.locX += 0.5
+
+        for wall in walls[level]:
+                if wall.locY + wall.height - 20 < self.locY < wall.locY + wall.height and wall.locX - self.width < self.locX < wall.locX + wall.width:
+                    self.locY = wall.locY + wall.height
+                if wall.locY + 20 > self.locY + self.height > wall.locY and wall.locX - self.width < self.locX < wall.locX + wall.width:
+                    self.locY = wall.locY - self.height
+
+class Wall(object):
+    def __init__(self, locX, locY, width, height):
+        self.width = width
+        self.height = height
+        self.locX = locX
+        self.locY = locY
+        
 class Block(object):
     width = 80
     height = 80
@@ -125,6 +163,14 @@ class Block(object):
             else:
                 self.fallSpeed = 0
                 self.falling = False
+
+            for x in objects[level]:
+                if isinstance(x, Treadmill):
+                    if not self.blockBlock("D", x.locX, x.locY, x.width, x.height) and x.spinCount:
+                        if x.rotation == "clock":
+                            self.locX -= 0.5
+                        if x.rotation == "counter":
+                            self.locX += 0.5
         elif gravity == "U":
             if canMove(level, "U", self.locX, self.locY, self.width, self.height) and not self.blockedU and not self.headLand(player.locX, player.locY, player.width, player.height):
                 self.locY -= (0.01 + self.fallSpeed)
@@ -133,8 +179,21 @@ class Block(object):
             else:
                 self.fallSpeed = 0
                 self.falling = False
-        #pushing
-            #player
+        for wall in walls[level]:
+            if wall.locY + wall.height - 20 < self.locY < wall.locY + wall.height and wall.locX - self.width < self.locX < wall.locX + wall.width:
+                self.locY = wall.locY + wall.height
+            if wall.locY + 20 > self.locY + self.height > wall.locY and wall.locX - self.width < self.locX < wall.locX + wall.width:
+                self.locY = wall.locY - self.height
+            #treadmill pushing
+            for x in objects[level]:
+                if isinstance(x, Treadmill):
+                    if not self.blockBlock("U", x.locX, x.locY, x.width, x.height) and x.spinCount:
+                        if x.rotation == "clock":
+                            self.locX += 0.5
+                        if x.rotation == "counter":
+                            self.locX -= 0.5
+    #pushing
+        #player
         if keys[pygame.K_RIGHT] and not playerBlock("R", self.locX, self.locY, self.width, self.height) and canMove(level, "R", player.locX, player.locY, player.width, player.height) and not self.justPushedR and not self.falling and not self.blockedR and canMove(level, "R", self.locX, self.locY, self.width, self.height):
             self.locX += 0.5
             player.locX += 0.5
@@ -153,7 +212,7 @@ class Block(object):
             self.pushCount += 1
         else:
             self.justPushedL = False
-            #door
+        #door
         for door in objects[level]:
             if isinstance(door, PlateDoor):
                 if door.doorBlock("R", self.locX, self.locY, self.width, self.height) and canMove(level, "R", self.locX, self.locY, self.width, self.height):
@@ -166,14 +225,30 @@ class Block(object):
                     self.locY += 1
     def blockBlock(self, direction, locX, locY, width, height):
         if not (self.locX == locX and self.locY == locY):
-            if direction == "R" and (self.locX + self.width == locX and locY - self.height < self.locY < locY + height):
-                self.blockedR = True
-            if direction == "L" and (self.locX == locX + width and locY - self.height < self.locY < locY + height):
-                self.blockedL = True
-            if direction == "U" and (locY + (height / 2) < self.locY <= locY + height and locX - self.width < self.locX < locX + width):
-                self.blockedU = True
-            if direction == "D" and (locY - self.height <= self.locY < locY + (height / 2) - self.height and locX - self.width < self.locX < locX + width):
-                self.blockedD = True
+            if direction == "R":
+                if (self.locX + self.width == locX and locY - self.height < self.locY < locY + height):
+                    self.blockedR = True
+                    return True
+                else:
+                    return False
+            if direction == "L":
+                if (self.locX == locX + width and locY - self.height < self.locY < locY + height):
+                    self.blockedL = True
+                    return True
+                else:
+                    return False
+            if direction == "U":
+                if (locY + (height / 2) < self.locY <= locY + height and locX - self.width < self.locX < locX + width):
+                    self.blockedU = True
+                    return True
+                else:
+                    return False
+            if direction == "D":
+                if (locY - self.height <= self.locY < locY + (height / 2) - self.height and locX - self.width < self.locX < locX + width):
+                    self.blockedD = True
+                    return True
+                else:
+                    return False
                 
     def headLand(self, playerLocX, playerLocY, playerWidth, playerHeight):
         if gravity == "D":
@@ -349,191 +424,146 @@ class GravSwap(object):
                 if isinstance(x, Block):
                     x.fallSpeed = 0
 
+class Treadmill(object):
+    height = 40
+    spinState = 20
+    cooldown = 0
+    lineX1 = 0
+    lineX2 = 0
+    angle1 = 0
+    angle2 = 0
+    spinCount = False
+    def __init__(self, rotation, locX, locY, width):
+        self.rotation = rotation
+        self.locX = locX
+        self.locY = locY
+        self.width = width
+        self.numberLines = int((width - 40) / 20)
+    def draw(self):
+        pygame.draw.rect(screen, black, (self.locX + 20, self.locY, self.width - 40, 40), 0)
+        pygame.draw.circle(screen, black, (self.locX + 20, self.locY + 20), 20, 0)
+        pygame.draw.circle(screen, black, (self.locX + self.width - 20, self.locY + 20), 20, 0)
+        
+
+        if self.rotation == "clock":
+            pygame.draw.rect(screen, lightRed, (self.locX + 20, self.locY + 10, self.width - 40, self.height - 20), 0)
+            pygame.draw.circle(screen, lightRed, (self.locX + 20, self.locY + 20), 10, 0)
+            pygame.draw.circle(screen, lightRed, (self.locX + self.width - 20, self.locY + 20), 10, 0)
+            
+            self.lineX1 = self.locX + self.spinState
+            self.lineX2 = self.locX + self.width - self.spinState
+            for x in range(self.numberLines):
+                pygame.draw.line(screen, orange, (self.lineX1, self.locY), (self.lineX1, self.locY + 10), 2)
+                self.lineX1 += 20
+                pygame.draw.line(screen, orange, (self.lineX2, self.locY + 30), (self.lineX2, self.locY + 40), 2)
+                self.lineX2 -= 20
+
+            self.angle1 = math.pi + (self.spinState * -math.pi / 40)
+            self.angle2 = self.angle1 - math.pi / 2
+            pygame.draw.line(screen, orange, (self.locX + self.width - 20 + (10 * math.cos(self.angle1)), self.locY + 20 - (10 * math.sin(self.angle1))), (self.locX + self.width - 20 + (20 * math.cos(self.angle1)), self.locY + 20 - (20 * math.sin(self.angle1))), 2)
+            pygame.draw.line(screen, orange, (self.locX + self.width - 20 + (10 * math.cos(self.angle2)), self.locY + 20 - (10 * math.sin(self.angle2))), (self.locX + self.width - 20 + (20 * math.cos(self.angle2)), self.locY + 20 - (20 * math.sin(self.angle2))), 2)
+            pygame.draw.line(screen, orange, (self.locX + 20 - (10 * math.cos(self.angle1)), self.locY + 20 + (10 * math.sin(self.angle1))), (self.locX + 20 - (20 * math.cos(self.angle1)), self.locY + 20 + (20 * math.sin(self.angle1))), 2)
+            pygame.draw.line(screen, orange, (self.locX + 20 - (10 * math.cos(self.angle2)), self.locY + 20 + (10 * math.sin(self.angle2))), (self.locX + 20 - (20 * math.cos(self.angle2)), self.locY + 20 + (20 * math.sin(self.angle2))), 2)
+        if self.rotation == "counter":
+            pygame.draw.rect(screen, purple, (self.locX + 20, self.locY + 10, self.width - 40, self.height - 20), 0)
+            pygame.draw.circle(screen, purple, (self.locX + 20, self.locY + 20), 10, 0)
+            pygame.draw.circle(screen, purple, (self.locX + self.width - 20, self.locY + 20), 10, 0)
+
+            self.lineX1 = self.locX + self.width - self.spinState
+            self.lineX2 = self.locX + self.spinState
+            for x in range(self.numberLines):
+                pygame.draw.line(screen, lightPurple, (self.lineX1, self.locY), (self.lineX1, self.locY + 10), 2)
+                self.lineX1 -= 20
+                pygame.draw.line(screen, lightPurple, (self.lineX2, self.locY + 30), (self.lineX2, self.locY + 40), 2)
+                self.lineX2 += 20
+
+            self.angle1 = -math.pi + (self.spinState * math.pi / 40)
+            self.angle2 = self.angle1 + math.pi / 2
+            pygame.draw.line(screen, lightPurple, (self.locX + self.width - 20 + (10 * math.cos(self.angle1)), self.locY + 20 - (10 * math.sin(self.angle1))), (self.locX + self.width - 20 + (20 * math.cos(self.angle1)), self.locY + 20 - (20 * math.sin(self.angle1))), 2)
+            pygame.draw.line(screen, lightPurple, (self.locX + self.width - 20 + (10 * math.cos(self.angle2)), self.locY + 20 - (10 * math.sin(self.angle2))), (self.locX + self.width - 20 + (20 * math.cos(self.angle2)), self.locY + 20 - (20 * math.sin(self.angle2))), 2)
+            pygame.draw.line(screen, lightPurple, (self.locX + 20 - (10 * math.cos(self.angle1)), self.locY + 20 + (10 * math.sin(self.angle1))), (self.locX + 20 - (20 * math.cos(self.angle1)), self.locY + 20 + (20 * math.sin(self.angle1))), 2)
+            pygame.draw.line(screen, lightPurple, (self.locX + 20 - (10 * math.cos(self.angle2)), self.locY + 20 + (10 * math.sin(self.angle2))), (self.locX + 20 - (20 * math.cos(self.angle2)), self.locY + 20 + (20 * math.sin(self.angle2))), 2)
+    def spin(self):
+        self.cooldown += 1
+        if self.cooldown == 10:
+            if self.spinState == 40: 
+                self.spinState = 20
+            else:
+                self.spinState += 1
+            self.cooldown = 0
+
+        self.spinCount = not self.spinCount
+
 #functions
 def drawLevel(level):
     screen.fill(screenColor)
-    #objects
     for x in objects[level]:
         if isinstance(x, GravSwap):
             x.draw()
     player.draw()
     for x in objects[level]:
-        if isinstance(x, (Block, PlateDoor)):
+        if isinstance(x, (Block, PlateDoor, Treadmill)):
             x.draw()
-    #level
-    if level == 0:
-        pygame.draw.rect(screen, black, (300, 500, 200, 20), 0)
-    elif level == 1:
-        pygame.draw.rect(screen, black, (0, 520, displayWidth, 80), 0) #bottom
-        pygame.draw.rect(screen, black, (180, 300, 40, 140), 0) #peninsula
-        pygame.draw.rect(screen, black, (0, 360, 80, 160), 0) #starting platform
-        pygame.draw.rect(screen, black, (700, 360, 100, 160), 0) #below exit
-        pygame.draw.rect(screen, black, (370, 400, 75, 40), 0) #island
-        pygame.draw.rect(screen, black, (485, 400, 215, 120), 0) #island to exit
-        pygame.draw.rect(screen, black, (370, 500, 115, 20), 0) #block stopper
-        pygame.draw.rect(screen, black, (0, 0, 520, 300), 0) #top middle/ left
-        pygame.draw.rect(screen, black, (520, 0, 300, 200), 0) #top right
-        pygame.draw.rect(screen, black, (780, 200, 20, 80), 0) #above exit
-    elif level == 2:
-        pygame.draw.rect(screen, black, (0, 520, displayWidth, 80), 0) #bottom
-        pygame.draw.rect(screen, black, (0, 0, 40, 440), 0) #left wall
-        pygame.draw.rect(screen, black, (40, 0, 760, 80), 0) #ceiling
-        pygame.draw.rect(screen, black, (200, 240, 60, 280), 0) #peninsula 1
-        pygame.draw.rect(screen, black, (220, 80, 140, 40), 0) #ceiling jump
-        pygame.draw.rect(screen, black, (100, 240, 100, 40), 0) #catch block
-        pygame.draw.rect(screen, black, (300, 240, 60, 230), 0) #peninsula 2
-        pygame.draw.rect(screen, black, (300, 120, 30, 120), 0) #peninsula 2 small peice
-        pygame.draw.rect(screen, black, (760, 80, 40, 320), 0) #right wall
-        pygame.draw.rect(screen, black, (720, 340, 40, 40), 0) #step to exit
-        pygame.draw.rect(screen, black, (510, 280, 100, 40), 0) #island
-        pygame.draw.rect(screen, black, (720, 80, 40, 40), 0) #block stopper top right
-        pygame.draw.rect(screen, black, (720, 480, 80, 40), 0) #block stopper bottom right
-    elif level == 3:
-        pygame.draw.rect(screen, black, (0, 520, displayWidth, 80), 0) #bottom
-        pygame.draw.rect(screen, black, (0, 0, displayWidth, 180), 0) #ceiling
-        pygame.draw.rect(screen, black, (0, 180, 40, 220), 0) #left wall
-        pygame.draw.rect(screen, black, (0, 480, 80, 40), 0) #block stopper bottom left
-        pygame.draw.rect(screen, black, (40, 180, 40, 40), 0) #block stopper top left
-        pygame.draw.rect(screen, black, (470, 180, 30, 40), 0) #block stopper top right
-        pygame.draw.rect(screen, black, (720, 480, 40, 40), 0) #block stopper bottom right
-        pygame.draw.rect(screen, black, (470, 320, 30, 100), 0) #peninsula left half
-        pygame.draw.rect(screen, black, (500, 180, 30, 240), 0) #peninsula right half
-        pygame.draw.rect(screen, black, (215, 320, 100, 40), 0) #island
-        pygame.draw.rect(screen, black, (760, 320, 40, 200), 0) #below exit
-    elif level == 4:
-        pygame.draw.rect(screen, black, (0, 520, displayWidth, 80), 0) #bottom
-        pygame.draw.rect(screen, black, (0, 0, 760, 80), 0) #ceiling
-        pygame.draw.rect(screen, black, (760, 0, 40, 400), 0) #right wall
-        pygame.draw.rect(screen, black, (0, 80, 40, 320), 0) #left wall
-        pygame.draw.rect(screen, black, (520, 360, 240, 40), 0) #peninsula
-        pygame.draw.rect(screen, black, (360, 200, 320, 40), 0) #island
-        pygame.draw.rect(screen, black, (320, 200, 40, 200), 0) #stair last
-        pygame.draw.rect(screen, black, (280, 280, 40, 120), 0) #stair middle
-        pygame.draw.rect(screen, black, (240, 320, 40, 80), 0) #stair first
-        pygame.draw.rect(screen, black, (720, 300, 40, 60), 0) #block stopper bottom right
-        pygame.draw.rect(screen, black, (720, 80, 40, 40), 0) #block stopper top right
-        pygame.draw.rect(screen, black, (0, 480, 80, 40), 0) #block stopper bottom left
-        pygame.draw.rect(screen, black, (40, 80, 40, 40), 0) #block stopper top left
-        pygame.draw.rect(screen, black, (640, 140, 40, 60), 0) #block stopper top middle
-        pygame.draw.rect(screen, black, (440, 240, 40, 40), 0) #jumping block
-        pygame.draw.rect(screen, black, (360, 240, 80, 200), 0) #block jump preventer
+    for x in walls[level]:
+        pygame.draw.rect(screen, black, (x.locX, x.locY, x.width, x.height), 0)
     pygame.display.update()
     
 def canMove(level, direction, locX, locY, width, height):
-    if level == 0:
         if direction == "R":
-            if locX >= displayWidth - width or 300 == locX + width  and 500 - height < locY < 520 :
-                return False
-            else:
+            checksR = []
+            for wall in walls[level]:
+                if locX + width == wall.locX and wall.locY - height < int(locY) < wall.locY + wall.height:
+                    checksR.append(False)
+                else:
+                    checksR.append(True)
+            if all(checksR) == True:
                 return True
+            else:
+                return False
         if direction == "L":
-            if locX <= 0 or locX == 500 and 500 - height < locY < 520:
-                return False
-            else:
+            checksL = []
+            for wall in walls[level]:
+                if locX == wall.locX + wall.width and wall.locY - height < int(locY) < wall.locY + wall.height:
+                    checksL.append(False)
+                else:
+                    checksL.append(True)
+            if all(checksL) == True:
                 return True
+            else:
+                return False
         if direction == "U":
-            if locY <= 0 or 510 < locY <= 520 and 300 - width < locX < 500:
-                return False
-            else:
+            checksU = []
+            for wall in walls[level]:
+                if wall.locY + wall.height - 20 < locY <= wall.locY + wall.height and wall.locX - width < locX < wall.locX + wall.width:
+                    checksU.append(False)
+                else:
+                    checksU.append(True)
+            if all(checksU) == True:
                 return True
+            else:
+                return False
         if direction == "D":
-            if locY >= displayHeight - height or 500 - height <= locY < 520 - height and 300 - width < locX < 500:
-                return False
-            else:
+            checksD = []
+            for wall in walls[level]:
+                if (wall.locY + 20 > locY + height >= wall.locY and wall.locX - width < locX < wall.locX + wall.width) or (locX < 0 or locX > 800):
+                    checksD.append(False)
+                else:
+                    checksD.append(True)
+            if all(checksD) == True:
                 return True
-    elif level == 1:
-        if direction == "R":
-            if (locX + width == 180 and locY < 440) or (locX + width == 370 and (400 - height < locY < 440 or 500 - height < locY)) or (locX + width == 485 and 400 - height < int(locY)) or (locX + width == 700 and 360 < locY + height) or (locX + width == 780 and 280 > locY):
-                return False
             else:
-                return True
-        if direction == "L":
-            if (locX == 520 and 300 > locY) or (locX == 445 and 400 - height < int(locY) < 440) or (locX == 220 and locY < 440) or (locX == 80 and locY + height > 360):
                 return False
-            else:
-                return True
-        if direction == "U":
-            if (420 < locY <= 440 and (180 - width < locX < 220 or 370 - width < locX < 445)) or (locY <= 300 and locX < 520) or (locY <= 280 and locX + width > 780) or (locY <= 200 and 520 - width < locX):
-                return False
-            else:
-                return True
-        if direction == "D":
-            if (locY + height >= 360 and (locX + width > 700 or locX < 80)) or (420 >= locY + height > 400 and (locX + width > 485 or 370 - width < locX < 445)) or (locY + height >= 500 and 370 - width < locX) or (locY + height >= 520 ):
-                return False
-            else:
-                return True
-    elif level == 2:
-        if direction == "R":
-            if (locX + width == 100 and 240 - height < locY < 280) or (locX + width == 200 and 280 - height < locY) or (locX + width == 220 and 80 - height < locY < 120) or (locX + width == 300 and locY < 470) or (locX + width == 520 and 280 - height < locY < 320) or (locX + width == 720 and (340 - height < locY < 380 or locY < 120 or locY + height > 480)) or (locX + width == 760 and  locY < 400):
-                return False
-            else:
-                return True
-        if direction == "L":
-            if (locX == 630 and 280 - height < locY < 320) or (locX == 360 and (220 - height < locY < 470 or locY < 120)) or (locX == 330 and 120 - height < locY < 240) or (locX == 260 and 240 - height < locY) or (locX == 40 and locY < 440):
-                return False
-            else:
-                return True
-        if direction == "U":
-            if (430 < locY <= 470 and 300 - width < locX < 360) or (locY <= 440 and locX < 40) or (360 < locY <= 380 and locX > 720 - width) or (300 < locY <= 320 and 510 - width < locX < 610) or (260 < locY <= 280 and 100 - width < locX < 200) or (100 < locY <= 120 and (220 - width < locX < 360 or locX > 720 - width)) or (locY <= 80):
-                return False
-            else:
-                return True
-        if direction == "D":
-            if (240 <= locY + height < 260 and (100 - width < locX < 260 or 330 - width < locX < 360)) or (280 <= locY + height < 300 and 510 - width < locX < 610) or (340 <= locY + height < 360 and locX > 720 - width) or (480 <= locY + height < 500 and locX + width > 720) or (locY + height >= 520):
-                return False
-            else:
-                return True
-    elif level == 3:
-        if direction == "R":
-            if (locX + width == 215 and 320 - height < locY < 360) or (locX + width == 470 and (320 - height < locY < 420 or locY < 220)) or (locX + width == 500 and locY < 320) or (locX + width == 720 and 480 - height < locY) or (locX + width == 760 and 320 - height < locY ):
-                return False
-            else:
-                return True
-        if direction == "L":
-            if (locX == 530 and locY < 420) or (locX == 315 and 320 - height < locY < 360) or (locX == 80 and (480 - height < locY or locY < 220)) or (locX == 40 and locY < 400):
-                return False
-            else:
-                return True
-        if direction == "U":
-            if (locY <= 400 and locX < 40) or (340 < locY <= 360 and 215 - width < locX < 315) or (200 < locY <= 220 and (470 - width < locX < 500 or locX < 80)) or (locY <= 180):
-                return False
-            else:
-                return True
-        if direction == "D":
-            if (340 > locY + height >= 320 and (215 - width < locX < 315 or 470 - width < locX < 500)) or (340 > locY + height >= 320 and 760 - width < locX) or (500 > locY + height >= 480 and (720 - width < locX or locX < 80)) or (locY + height >= 520):
-                return False
-            else:
-                return True
-    elif level == 4:
-        if direction == "R":
-            if (locX + width == 240 and 320 - height < locY < 400) or (locX + width == 280 and 280 - height < locY < 320) or (locX + width == 320 and 200 - height < locY < 300) or (locX + width == 360 and 400 - height < locY < 440) or (locX + width == 400 and 400 - height < locY < 440) or (locX + width == 520 and 360 - height < locY < 400) or (locX + width == 640 and 140 - height < locY < 180) or (locX + width == 720 and (300 - height < locY < 360 or locY < 120)) or (locX + width == 760 and locY < 320):
-                return False
-            else:
-                return True
-        if direction == "L":
-            if (locX == 680 and 140 - height < locY < 240) or (locX == 480 and 240 - height < locY < 280) or (locX == 440 and 240 - height < locY < 440) or (locX == 80 and (480 - height < locY or locY < 120)) or (locX == 40 and locY < 400):
-                return False
-            else:
-                return True
-        if direction == "U":
-            if (420 < locY <= 440 and 360 - width < locX < 440) or (380 < locY <= 400 and (240 - width < locX < 400 or locX < 40 or locX > 520 - width)) or (240 < locY <= 280 and 440 - width < locX < 480) or (260 < locY <= 280 and 400 - width < locX < 440) or (220 < locY <= 240 and 400 - width < locX < 680) or (100 < locY <= 120 and (720 - width < locX or locX < 80)) or (locY <= 80):
-                return False
-            else:
-                return True
-        if direction == "D":
-            if (160 > locY + height >= 140 and 640 - width < locX < 680) or (220 > locY + height >= 200 and 320 - width < locX < 680) or (300 > locY + height >= 280 and 280 - width < locX < 320) or (340 > locY + height >= 320 and 240 - width < locX < 280) or (320 > locY + height >= 300 and 720 - width < locX) or (380 > locY + height >= 360 and 520 - width < locX) or (500 > locY + height >= 480 and locX < 80) or (locY + height >= 520):
-                return False
-            else:
-                return True
+        
+
             
 def playerBlock(direction, locX, locY, width, height):
         if direction == "R":
-            if player.locX + player.width == locX and locY - player.height < player.locY < locY + height:
+            if player.locX + player.width == locX and locY - player.height < int(player.locY) < locY + height:
                 return False
             else:
                 return True
         if direction == "L":
-            if player.locX == locX + width and locY - player.height < player.locY < locY + height:
+            if player.locX == locX + width and locY - player.height < int(player.locY) < locY + height:
                 return False
             else:
                 return True
@@ -553,11 +583,13 @@ def winCheck():
         player.locX += 0.5
     if player.locX > displayWidth + 2:
         global level
-        level += 1
         global gravity
         global screenColor
+        global gravSwapColor
+        level += 1
         gravity = "D"
-        screencolor = lightBlue
+        screenColor = lightBlue
+        gravSwapColor = lightGreen
         player.locX = -60
         if level == 2:
             player.locY = 480
@@ -573,17 +605,25 @@ def upReleased():
         return True
 
 #set up
-player = Player(purple, -60, 320, 20, 40)
+player = Player(playerColor, -60, 320, 20, 40)
 if level == 2:
     player.locY = 480
 if level == 3 or level == 4:
     player.locY = 440
 
-objects0 = [Block(400, 300), Block(400, 200), GravSwap("V", 400, 570), PlateDoor(red, "D", 390, 495, 460, 520, 40, 80, 260, 520)]
+walls0 = [Wall(300, 460, 200, 40), Wall(0, 580, 800, 20)]
+walls1 = [Wall(0, 520, 800, 80), Wall(180, 300, 40, 140), Wall(0, 360, 80, 160), Wall(700, 360, 100, 160), Wall(370, 400, 75, 40), Wall(485, 400, 215, 120), Wall(370, 500, 115, 20), Wall(0, 0, 520, 300), Wall(520, 0, 300, 200), Wall(780, 200, 20, 80)]
+walls2 = [Wall(0, 520, 800, 80), Wall(0, 0, 40, 440), Wall(40, 0, 760, 80), Wall(200, 240, 60, 280), Wall(220, 80, 140, 40), Wall(100, 240, 100, 40), Wall(300, 240, 60, 230), Wall(300, 120, 30, 120), Wall(760, 80, 40, 320), Wall(720, 340, 40, 40), Wall(510, 280, 100, 40), Wall(720, 80, 40, 40), Wall(720, 480, 80, 40)]
+walls3 = [Wall(0, 520, 800, 80), Wall(0, 0, 760, 80), Wall(760, 0, 40, 400), Wall(0, 80, 40, 320), Wall(520, 360, 240, 40), Wall(360, 200, 320, 40), Wall(320, 200, 40, 200), Wall(280, 280, 40, 120), Wall(240, 320, 40, 80), Wall(720, 300, 40, 60), Wall(720, 80, 40, 40), Wall(0, 480, 80, 40), Wall(40, 80, 40, 40), Wall(640, 140, 40, 60), Wall(440, 240, 40, 40), Wall(360, 240, 80, 200)]
+walls4 = [Wall(0, 520, 800, 80), Wall(0, 0, 800, 180), Wall(0, 180, 40, 220), Wall(0, 480, 80, 40), Wall(40, 180, 40, 40), Wall(470, 180, 30, 40), Wall(720, 480, 40, 40), Wall(470, 320, 30, 100), Wall(500, 180, 30, 240), Wall(215, 320, 100, 40), Wall(760, 320, 40, 200)]
+walls5 = []
+walls = [walls0, walls1, walls2, walls3, walls4, walls5]
+
+objects0 = [Block(400, 300), GravSwap("V", 400, 570), Treadmill("counter", 140, 480, 120), Treadmill("clock", 200, 200, 400)]
 objects1 = [Block(425, 320), PlateDoor(red, "D", 100, 515, 780, 280, 20, 80, 780, 200)]
 objects2 = [Block(520, 440), GravSwap("V", 150, 490), GravSwap("V", 435, 490), GravSwap("V", 435, 110), GravSwap("V", 260, 150), PlateDoor(red, "U", 530, 80, 760, 400, 40, 80, 760, 320)]
-objects3 = [Block(225, 440), Block(560, 440), GravSwap("V", 265, 390), GravSwap("V", 130, 210), PlateDoor(red, "D", 100, 515, 760, 180, 40, 140, 760, 40), PlateDoor(blue, "D", 235, 315, 470, 420, 60, 100, 470, 320)]
-objects4 = [Block(320, 120), Block(110, 440), GravSwap("H", 730, 220), GravSwap("V", 430, 110), GravSwap("H", 70, 370), PlateDoor(red, "U", 120, 80, 520, 400, 40, 120, 320, 400), PlateDoor(blue, "D", 370, 515, 520, 80, 40, 120, 520, 240)]
+objects3 = [Block(320, 120), Block(110, 440), GravSwap("H", 730, 220), GravSwap("V", 430, 110), GravSwap("H", 70, 370), PlateDoor(red, "U", 120, 80, 520, 400, 40, 120, 320, 400), PlateDoor(blue, "D", 370, 515, 520, 80, 40, 120, 520, 240)]
+objects4 = [Block(225, 440), Block(560, 440), GravSwap("V", 265, 390), GravSwap("V", 190, 210), PlateDoor(red, "D", 100, 515, 760, 180, 40, 140, 760, 40), PlateDoor(blue, "D", 235, 315, 470, 420, 60, 100, 470, 320)]
 objects5 = []
 objects = [objects0, objects1, objects2, objects3, objects4, objects5]
 
@@ -602,29 +642,29 @@ while True:
     keys = pygame.key.get_pressed()
     
     #player movement checks
-    checksR = []
-    checksL = []
-    checksU = []
-    checksD = []
+    playerChecksR = []
+    playerChecksL = []
+    playerChecksU = []
+    playerChecksD = []
     for x in objects[level]:
-        if isinstance(x, (Block, PlateDoor)):
-            checksR.append(playerBlock("R", x.locX, x.locY, x.width, x.height))
-            checksL.append(playerBlock("L", x.locX, x.locY, x.width, x.height))
-            checksU.append(playerBlock("U", x.locX, x.locY, x.width, x.height))
-            checksD.append(playerBlock("D", x.locX, x.locY, x.width, x.height))
-    if all(checksR) == True:
+        if isinstance(x, (Block, PlateDoor, Treadmill)):
+            playerChecksR.append(playerBlock("R", x.locX, x.locY, x.width, x.height))
+            playerChecksL.append(playerBlock("L", x.locX, x.locY, x.width, x.height))
+            playerChecksU.append(playerBlock("U", x.locX, x.locY, x.width, x.height))
+            playerChecksD.append(playerBlock("D", x.locX, x.locY, x.width, x.height))
+    if all(playerChecksR) == True:
         player.blockedR = False
     else:
         player.blockedR = True
-    if all(checksL) == True:
+    if all(playerChecksL) == True:
         player.blockedL = False
     else:
         player.blockedL = True
-    if all(checksU) == True:
+    if all(playerChecksU) == True:
         player.blockedU = False
     else:
         player.blockedU = True
-    if all(checksD) == True:
+    if all(playerChecksD) == True:
         player.blockedD = False
     else:
         player.blockedD = True
@@ -642,7 +682,7 @@ while True:
             block.blockedU = False
             block.blockedD = False
             for obj in objects[level]:
-                if isinstance(obj, (Block, PlateDoor)):
+                if isinstance(obj, (Block, PlateDoor, Treadmill)):
                     block.blockBlock("R", obj.locX, obj.locY, obj.width, obj.height)
                     block.blockBlock("L", obj.locX, obj.locY, obj.width, obj.height)
                     block.blockBlock("U", obj.locX, obj.locY, obj.width, obj.height)
@@ -658,6 +698,11 @@ while True:
                     plate.triggerCheck(block.locX, block.locY, block.width, block.height)
             plate.triggerCheck(player.locX, player.locY, player.width, player.height)
             plate.triggerWork()
+
+    #treadmill stuff
+    for x in objects[level]:
+        if isinstance(x, Treadmill):
+            x.spin()
 
     #player stuff
     player.movement()
