@@ -31,14 +31,14 @@ orange = (255, 180, 40)
 displayWidth = 800
 displayHeight = 600
 screenColor = lightBlue
-gravity = "D"
-level = 0
+gravity = 1
+FPS = 120.0
+level = 5
 
 #classes
 class Player(object):
     jumping = False
     falling = False
-    newJump = True
     jumpHeight = 0
     fallSpeed = 0
     startX = 0
@@ -47,89 +47,62 @@ class Player(object):
     canMoveL = True
     canMoveU = True
     canMoveD = True
+    
     def __init__(self, color, locX, locY, width, height):
         self.color = color
         self.width = width
         self.height = height
         self.locX = locX
         self.locY = locY
+        
     def draw(self):
         pygame.draw.rect(screen, self.color, (self.locX, self.locY, self.width, self.height), 0)
+        
     def movement(self):
         #block checks
-        self.canMoveR = canMove("R", self, (Block, Treadmill, PlateDoor), True)
-        self.canMoveL = canMove("L", self, (Block, Treadmill, PlateDoor), True)
-        self.canMoveU = canMove("U", self, (Block, Treadmill, PlateDoor), True)
-        self.canMoveD = canMove("D", self, (Block, Treadmill, PlateDoor), True)
-
+        self.canMoveR = canMove('R', self, (Block, Treadmill, PlateDoor), True)
+        self.canMoveL = canMove('L', self, (Block, Treadmill, PlateDoor), True)
+        self.canMoveU = canMove('U', self, (Block, Treadmill, PlateDoor), True)
+        self.canMoveD = canMove('D', self, (Block, Treadmill, PlateDoor), True)
+        canJump = gravity == 1 and self.canMoveU or gravity == -1 and self.canMoveD
+        canFall = gravity == 1 and self.canMoveD or gravity == -1 and self.canMoveU
+        newJump = False if keys[pygame.K_UP] else True
+        
         self.startX = self.locX
         self.startY = self.locY
         
         #walking
         if keys[pygame.K_RIGHT] and self.canMoveR:
-            self.locX += 0.5
+            self.locX += 3
         if keys[pygame.K_LEFT] and self.canMoveL:
-            self.locX -= 0.5
-        #gravity stuff
-        self.newJump = False if keys[pygame.K_UP] else True
-        if gravity == "D":
-            #jumping
-            if self.newJump and not self.jumping and not self.falling and self.canMoveU:
-                self.jumping = True
-                self.jumpHeight = 0
-            if keys[pygame.K_UP] and self.jumping and self.jumpHeight < 140 and self.canMoveU:
-                self.locY -= 1.25
-                self.jumpHeight += 1.25
-            if self.jumpHeight >= 140:
-                self.jumping = False
-                self.falling = True
+            self.locX -= 3
 
-            #falling
-            if (upReleased() or not self.jumping or not self.canMoveU) and self.canMoveD:
-                self.locY += 0.01 + self.fallSpeed
-                self.fallSpeed += 0.005
-                self.jumping = False
-                self.falling = True
-            if not self.canMoveD:
-                self.falling = False
-                self.fallSpeed = 0
-                            
-        elif gravity == "U":
-            #jumping
-            if self.newJump and not self.jumping and not self.falling and self.canMoveD:
-                self.jumping = True
-                self.jumpHeight = 0
-            if keys[pygame.K_UP] and self.jumping and self.jumpHeight < 140 and self.canMoveD:
-                self.locY += 1.25
-                self.jumpHeight += 1.25
-            if self.jumpHeight >= 140:
-                self.jumping = False
-                self.falling = True
-            #falling
-            if (upReleased() or not self.jumping or not self.canMoveD) and self.canMoveU:
-                self.locY -= (0.01 + self.fallSpeed)
-                self.fallSpeed += 0.005
-                self.jumping = False
-                self.falling = True
-            if not self.canMoveU:
-                self.falling = False
-                self.fallSpeed = 0
+        #jumping
+        if newJump and not self.jumping and not self.falling and canJump:
+            self.jumping = True
+            self.jumpHeight = 0
+        if keys[pygame.K_UP] and self.jumping and self.jumpHeight < 140 and canJump:
+            self.locY -= 7.5 * gravity
+            self.jumpHeight += 7.5
+        if self.jumpHeight >= 140:
+            self.jumping = False
+            self.falling = True
 
-        #Y correcttion
-        for wall in walls[level]:
-            if wall.locY < self.locY + self.height < wall.locY + wall.height / 2 and wall.locX - self.width < self.locX < wall.locX + wall.width:
-                self.locY = wall.locY - self.height
-            if wall.locY + wall.height / 2 < self.locY  < wall.locY + wall.height and wall.locX - self.width < self.locX < wall.locX + wall.width:
-                self.locY = wall.locY + wall.height
-        for x in objects[level]:
-            if isinstance(x, (Block, Treadmill, PlateDoor)):
-                if x.locY < self.locY + self.height < x.locY + x.height / 2 and x.locX - self.width < self.locX < x.locX + x.width:
-                    self.locY = x.locY - self.height
-                if x.locY + x.height / 2 < self.locY  < x.locY + x.height and x.locX - self.width < self.locX < x.locX + x.width:
-                    self.locY = x.locY + x.height
+        #falling
+        if (upReleased() or not self.jumping or not canJump) and canFall:
+            self.locY += (0.06 + self.fallSpeed) * gravity
+            self.fallSpeed += 0.25
+            self.jumping = False
+            self.falling = True
+        if not canFall:
+            self.falling = False
+            self.fallSpeed = 0
+
         #offscreen pushing
         if self.locX < 0:
             self.locX += 0.5
+
+        fixPos(self, (Block, Treadmill, PlateDoor, Wall))
             
 class Wall(object):
     def __init__(self, locX, locY, width, height):
@@ -151,74 +124,56 @@ class Block(object):
     canMoveU = False
     canMoveD = False
     spinning = False
+    
     def __init__(self, locX, locY):
         self.locX = locX
         self.locY = locY
+        
     def draw(self):
         pygame.draw.rect(screen, white, (self.locX, self.locY, self.width, self.height), 0)
         pygame.draw.rect(screen, lightGrey, (self.locX + 5, self.locY + 5, self.width - 10, self.height - 10), 0)
         pygame.draw.rect(screen, white, (self.locX + 20, self.locY + 20, self.width - 40, self.height - 40), 2)
+        
     def update(self):
         #block checks
-        self.canMoveR = canMove("R", self, (Block, Treadmill, PlateDoor, Player), True)
-        self.canMoveL = canMove("L", self, (Block, Treadmill, PlateDoor, Player), True)
-        self.canMoveU = canMove("U", self, (Block, Treadmill, PlateDoor, Player), True)
-        self.canMoveD = canMove("D", self, (Block, Treadmill, PlateDoor, Player), True)
-
+        self.canMoveR = canMove('R', self, (Block, Treadmill, PlateDoor, Player), True)
+        self.canMoveL = canMove('L', self, (Block, Treadmill, PlateDoor, Player), True)
+        self.canMoveU = canMove('U', self, (Block, Treadmill, PlateDoor, Player), True)
+        self.canMoveD = canMove('D', self, (Block, Treadmill, PlateDoor, Player), True)
+        canFall = gravity == 1 and self.canMoveD or gravity == -1 and self.canMoveU
+        
         self.startX = self.locX
         self.startY = self.locY
         
         #falling
-        if gravity == "D":
-            if self.canMoveD:
-                self.locY += 0.01 + self.fallSpeed
-                self.fallSpeed += 0.01
-                self.falling = True
-            else:
-                self.fallSpeed = 0
-                self.falling = False
-
-        elif gravity == "U":
-            if self.canMoveU:
-                self.locY -= (0.01 + self.fallSpeed)
-                self.fallSpeed += 0.01
-                self.falling = True
-            else:
-                self.fallSpeed = 0
-                self.falling = False
-
-        #Y correcttion
-        for wall in walls[level]:
-            if wall.locY < self.locY + self.height < wall.locY + wall.height / 2 and wall.locX - self.width < self.locX < wall.locX + wall.width:
-                self.locY = wall.locY - self.height
-            if wall.locY + wall.height / 2 < self.locY  < wall.locY + wall.height and wall.locX - self.width < self.locX < wall.locX + wall.width:
-                self.locY = wall.locY + wall.height
-        for x in objects[level]:
-            if isinstance(x, (Block, Treadmill, PlateDoor)) and not (x.locX == self.locX and x.locY == self.locY and x.height == self.height and x.width == self.width):
-                if x.locY < self.locY + self.height < x.locY + x.height / 2 and x.locX - self.width < self.locX < x.locX + x.width:
-                    self.locY = x.locY - self.height
-                if x.locY + x.height / 2 < self.locY  < x.locY + x.height and x.locX - self.width < self.locX < x.locX + x.width:
-                    self.locY = x.locY + x.height
+        if canFall:
+            self.locY += (0.06 + self.fallSpeed) * gravity
+            self.fallSpeed += 0.3
+            self.falling = True
+        else:
+            self.fallSpeed = 0
+            self.falling = False
         
     #pushing
         #player
         self.pushCount = not self.pushCount
-        if keys[pygame.K_RIGHT] and self.pushCount and not self.falling and not self.spinning and self.canMoveR and oneBlock("R", player, self):
-            self.locX += 0.5
-        if keys[pygame.K_LEFT] and self.canMoveL and self.pushCount and not self.spinning and not self.falling and oneBlock("L", player, self):
-            self.locX -= 0.5
+        if keys[pygame.K_RIGHT] and self.pushCount and not self.falling and not self.spinning and self.canMoveR and oneBlock('R', player, self):
+            self.locX += 3
+        if keys[pygame.K_LEFT] and self.canMoveL and self.pushCount and not self.spinning and not self.falling and oneBlock('L', player, self):
+            self.locX -= 3
         #door
         for door in objects[level]:
             if isinstance(door, PlateDoor):
-                if oneBlock("R", door, self) and self.canMoveR and door.movingR:
-                    self.locX += 1
-                elif oneBlock("L", door, self) and self.canMoveL and door.movingL:
-                    self.locX -= 1
-                elif oneBlock("U", door, self) and self.canMoveU and door.movingU:
-                    self.locY -= 1
-                elif oneBlock("D", door, self) and self.canMoveD and door.movingD:
-                    self.locY += 1
+                if oneBlock('R', door, self) and self.canMoveR and door.movingR:
+                    self.locX += 6
+                elif oneBlock('L', door, self) and self.canMoveL and door.movingL:
+                    self.locX -= 6
+                elif oneBlock('U', door, self) and self.canMoveU and door.movingU:
+                    self.locY -= 6
+                elif oneBlock('D', door, self) and self.canMoveD and door.movingD:
+                    self.locY += 6
         self.spinning = False
+        fixPos(self, (Player, Block, Treadmill, PlateDoor, Wall))
             
 class PlateDoor(object):
     plateWidth = 60
@@ -233,6 +188,7 @@ class PlateDoor(object):
     movingL = False
     movingU = False
     movingD = False
+    
     def __init__(self, color, pressDir, plateLocX, plateLocY, doorStartX, doorStartY, doorWidth, doorHeight, doorEndX, doorEndY):
         self.color = color
         self.pressDir = pressDir
@@ -272,10 +228,10 @@ class PlateDoor(object):
         self.movingU = False
         self.movingD = False
 
-        self.canMoveR = canMove("R", self, (Block, Player), False)
-        self.canMoveL = canMove("L", self, (Block, Player), False)
-        self.canMoveU = canMove("U", self, (Block, Player), False)
-        self.canMoveD = canMove("D", self, (Block, Player), False)
+        self.canMoveR = canMove('R', self, (Block, Player), False)
+        self.canMoveL = canMove('L', self, (Block, Player), False)
+        self.canMoveU = canMove('U', self, (Block, Player), False)
+        self.canMoveD = canMove('D', self, (Block, Player), False)
 
         self.startX = self.locX
         self.startY = self.locY
@@ -284,53 +240,55 @@ class PlateDoor(object):
             if self.locY > self.doorEndY:
                 self.movingU = True
                 if self.canMoveU:
-                    self.locY -= 1
+                    self.locY -= 6
             if self.locY < self.doorEndY:
                 self.movingD = True
                 if self.canMoveD:
-                    self.locY += 1
+                    self.locY += 6
             if self.locX > self.doorEndX:
                 self.movingL = True
                 if self.canMoveL:
-                    self.locX -= 1
+                    self.locX -= 6
             if self.locX < self.doorEndX:
                 self.movingR = True
                 if self.canMoveR:
-                    self.locX += 1
+                    self.locX += 6
 
             self.plateHeight = 2
-            if self.pressDir == "D":
+            if self.pressDir == 'D':
                 self.plateImageY = self.plateLocY + 3         
         else:
             if self.locY > self.doorStartY:
                 self.movingU = True
                 if self.canMoveU:
-                    self.locY -= 1
+                    self.locY -= 6
             if self.locY < self.doorStartY:
                 self.movingD = True
                 if self.canMoveD:
-                    self.locY += 1
+                    self.locY += 6
             if self.locX > self.doorStartX:
                 self.movingL = True
                 if self.canMoveL:
-                    self.locX -= 1
+                    self.locX -= 6
             if self.locX < self.doorStartX:
                 self.movingR = True
                 if self.canMoveR:
-                    self.locX += 1
+                    self.locX += 6
 
             self.plateImageY = self.plateLocY
             self.plateHeight = 5
 
+        fixPos(self, (Player, Block))
+        
         #player pushing
-        if oneBlock("R", self, player) and player.canMoveR and self.movingR:
-            player.locX += 1
-        elif oneBlock("L", self, player) and player.canMoveL and self.movingL:
-            player.locX -= 1
-        elif oneBlock("U", self, player) and player.canMoveU and self.movingU:
-            player.locY -= 1
-        elif oneBlock("D", self, player) and player.canMoveD and self.movingD:
-            player.locY += 1
+        if oneBlock('R', self, player) and player.canMoveR and self.movingR:
+            player.locX += 6
+        elif oneBlock('L', self, player) and player.canMoveL and self.movingL:
+            player.locX -= 6
+        elif oneBlock('U', self, player) and player.canMoveU and self.movingU:
+            player.locY -= 6
+        elif oneBlock('D', self, player) and player.canMoveD and self.movingD:
+            player.locY += 6
 
 gravSwapColor = lightGreen
 class GravSwap(object):
@@ -345,9 +303,9 @@ class GravSwap(object):
         self.locY = locY
         
     def draw(self):
-        if self.rotation == "V":
+        if self.rotation == 'V':
             pygame.draw.line(screen, black, (self.locX, self.locY - 30), (self.locX, self.locY + 30), 8)
-        elif self.rotation == "H":
+        elif self.rotation == 'H':
             pygame.draw.line(screen, black, (self.locX - 30, self.locY), (self.locX + 30, self.locY), 8)
         pygame.draw.circle(screen, black, (self.locX, self.locY), 20, 0)
         pygame.draw.circle(screen, gravSwapColor, (self.locX, self.locY), 16, 0)
@@ -368,14 +326,9 @@ class GravSwap(object):
             global screenColor
             global gravSwapColor
             self.pressed = True
-            if gravity == "D":
-                gravity = "U"
-                screenColor = lightGreen
-                gravSwapColor = lightBlue
-            elif gravity == "U":
-                gravity = "D"
-                screenColor = lightBlue
-                gravSwapColor = lightGreen
+            gravity *= -1
+            screenColor = lightBlue if gravity == 1 else lightGreen
+            gravSwapColor = lightGreen if gravity == 1 else lightBlue
             player.fallSpeed = 0
             for x in objects[level]:
                 if isinstance(x, Block):
@@ -391,25 +344,27 @@ class Treadmill(object):
     lineX2 = 0
     angle1 = 0
     angle2 = 0
-    spinCount = False
     color = black
+    
     def __init__(self, rotation, locX, locY, width):
         self.rotation = rotation
         self.locX = locX
         self.locY = locY
         self.width = width
         self.numberLines = int((width - 40) / 20)
-        self.lineColor = orange if self.rotation == "clock" else lightPurple
+        self.lineColor = orange if self.rotation == 'R' else lightPurple
+        
     def draw(self):
         pygame.draw.rect(screen, black, (self.locX + 20, self.locY, self.width - 40, self.height), 0)
         pygame.draw.circle(screen, black, (self.locX + 20, self.locY + 20), 20, 0)
         pygame.draw.circle(screen, black, (self.locX + self.width - 20, self.locY + 20), 20, 0)
-        self.color = lightRed if self.rotation == "clock" else purple
+        self.color = lightRed if self.rotation == 'R' else purple
         pygame.draw.rect(screen, self.color, (self.locX + 20, self.locY + 10, self.width - 40, self.height - 20), 0)
         pygame.draw.circle(screen, self.color, (self.locX + 20, self.locY + 20), 10, 0)
         pygame.draw.circle(screen, self.color, (self.locX + self.width - 20, self.locY + 20), 10, 0)
+        
     def drawLines(self, color):
-        if self.rotation == "clock":
+        if self.rotation == 'R':
             self.lineX1 = self.locX + self.spinState
             self.lineX2 = self.locX + self.width - self.spinState
             for x in range(self.numberLines):
@@ -424,7 +379,7 @@ class Treadmill(object):
             pygame.draw.line(screen, color, (self.locX + self.width - 20 + (10 * math.cos(self.angle2)), self.locY + 20 - (10 * math.sin(self.angle2))), (self.locX + self.width - 20 + (19 * math.cos(self.angle2)), self.locY + 20 - (19 * math.sin(self.angle2))), 1)
             pygame.draw.line(screen, color, (self.locX + 20 - (10 * math.cos(self.angle1)), self.locY + 20 + (10 * math.sin(self.angle1))), (self.locX + 20 - (20 * math.cos(self.angle1)), self.locY + 20 + (19 * math.sin(self.angle1))), 1)
             pygame.draw.line(screen, color, (self.locX + 20 - (10 * math.cos(self.angle2)), self.locY + 20 + (10 * math.sin(self.angle2))), (self.locX + 20 - (20 * math.cos(self.angle2)), self.locY + 20 + (19 * math.sin(self.angle2))), 1)
-        elif self.rotation == "counter":
+        elif self.rotation == 'L':
             self.lineX1 = self.locX + self.width - self.spinState
             self.lineX2 = self.locX + self.spinState
             for x in range(self.numberLines):
@@ -441,64 +396,45 @@ class Treadmill(object):
             pygame.draw.line(screen, color, (self.locX + 20 - (10 * math.cos(self.angle2)), self.locY + 20 + (10 * math.sin(self.angle2))), (self.locX + 20 - (19 * math.cos(self.angle2)), self.locY + 20 + (19 * math.sin(self.angle2))), 1)
 
     def spinImage(self):
-        self.cooldown += 1
-        if self.cooldown == 10:
-            if self.spinState == 40: 
-                self.spinState = 20
-            else:
-                self.spinState += 1
-            self.cooldown = 0
-
+        if self.spinState == 40: 
+            self.spinState = 20
+        else:
+            self.spinState += 1
+            
+    def treadBlockBlock(self, direction, test):
+        if test is player:
+            return False
+        if direction == 'U':
+            return self.locY + (self.height / 2) < test.locY <= self.locY + self.height and self.locX - test.width  + 20 < test.locX < self.locX + self.width - 20
+        if direction == 'D':
+            return self.locY - test.height <= test.locY < self.locY + (self.height / 2) - test.height and self.locX - test.width + 20 < test.locX < self.locX + self.width - 20
+    #tries to spin player and blocks
     def update(self):
-        self.spinCount = not self.spinCount
-        if gravity == "U":
-            for x in objects[level]:
-                if isinstance(x, Block):
-
-                    self.locX += 20
-                    self.width -= 40
-                    if oneBlock("U", x, self):
-                        x.spinning = True
-                    self.locX -= 20
-                    self.width +=40
-                    
-                    if oneBlock("U", x, self) and self.spinCount:
-                        if self.rotation == "clock" and x.canMoveL:
-                            x.locX -= 0.5
-                        elif self.rotation == "counter" and x.canMoveR:
-                            x.locX += 0.5
-
-            if oneBlock("U", player, self) and self.spinCount:
-                        if self.rotation == "clock" and player.canMoveL:
-                            player.locX -= 0.5
-                        elif self.rotation == "counter" and player.canMoveR:
-                            player.locX += 0.5
-        elif gravity == "D":
-            for x in objects[level]:
-                if isinstance(x, Block):
-
-                    self.locX += 20
-                    self.width -= 40
-                    if oneBlock("D", x, self):
-                        x.spinning = True
-                    self.locX -= 20
-                    self.width +=40
-                    
-                    if oneBlock("D", x, self) and self.spinCount:
-                        if self.rotation == "clock" and x.canMoveR:
-                            x.locX += 0.5
-                        elif self.rotation == "counter" and x.canMoveL:
-                            x.locX -= 0.5
-            if oneBlock("D", player, self) and self.spinCount:
-                        if self.rotation == "clock" and player.canMoveR:
-                            player.locX += 0.5
-                        elif self.rotation == "counter" and player.canMoveL:
-                            player.locX -= 0.5
+        objects[level].append(player)
+        checkDir = 'D' if gravity == 1 else 'U'
+        for x in objects[level]:
+            if isinstance(x, (Block, Player)):
+                if self.treadBlockBlock(checkDir, x):
+                    x.spinning = True
+                canMove = x.canMoveR if gravity == 1 and self.rotation == 'R' or gravity == -1 and self.rotation == 'L' else x.canMoveL
+                if oneBlock(checkDir, x, self):
+                    if self.rotation == 'R' and canMove:
+                        x.locX += 1.5 * gravity
+                        fixPos(x, (Player, Block, Treadmill, PlateDoor, Wall))
+                    elif self.rotation == 'L' and canMove:
+                        x.locX -= 1.5 * gravity
+                        fixPos(x, (Player, Block, Treadmill, PlateDoor, Wall))
+        objects[level].remove(player)
+        
 #functions
 def drawLevel():
     screen.fill(screenColor)
     for x in objects[level]:
-        x.draw()
+        if isinstance(x, GravSwap):
+            x.draw()
+    for x in objects[level]:
+        if not isinstance(x, GravSwap):
+            x.draw()
     player.draw()
     for x in walls[level]:
         pygame.draw.rect(screen, black, (x.locX, x.locY, x.width, x.height), 0)
@@ -525,8 +461,7 @@ def reDraw():
             redrawers.append(x)
             plateCover(x)
         elif isinstance(x, Treadmill):
-            dirtRects.append((x.locX, x.locY, x.width, x.height)) #expand this part
-            
+            dirtRects.append((x.locX, x.locY, x.width, x.height))
             x.drawLines(black)
             x.spinImage()
             x.drawLines(x.lineColor)
@@ -544,9 +479,9 @@ def reDraw():
             if x.trigStart != x.triggered: #plate
                 if x.triggered:
                     pygame.draw.rect(screen, screenColor, (x.plateLocX, x.plateLocY, x.plateWidth, 5), 0)
-                elif x.pressDir == "D":
+                elif x.pressDir == 'D':
                     pygame.draw.rect(screen, screenColor, (x.plateLocX, x.plateLocY + 3, x.plateWidth, 2), 0)
-                elif x.pressDir == "U":
+                elif x.pressDir == 'U':
                     pygame.draw.rect(screen, screenColor, (x.plateLocX, x.plateLocY, x.plateWidth, 2), 0)
                 dirtRects.append((x.plateLocX, x.plateLocY, x.plateWidth, 5))
                 redrawers.append(x)
@@ -571,44 +506,45 @@ def plateCover(y):
             global redrawers
             redrawers.append(x)
 
+def fixPos(obj, blockers):
+    objects[level].append(player)
+    blocks = [walls[level], objects[level]]
+    for arr in blocks:
+        for block in arr:
+            if isinstance(block, blockers) and not block is obj and block.locY - obj.height < obj.locY < block.locY + block.height and block.locX - obj.width < obj.locX < block.locX + block.width:
+                if obj.startX > block.locX + block.width: 
+                    obj.locX = block.locX + block.width
+                elif obj.startX < block.locX - obj.width:
+                    obj.locX = block.locX - obj.width
+                if obj.startY >= block.locY + block.height: #Ys get the equal to prevent crunch jankiness
+                    obj.locY = block.locY + block.height
+                elif obj.startY <= block.locY - obj.height:
+                    obj.locY = block.locY - obj.height
+    objects[level].remove(player)
+                    
 def oneBlock(direction, test, block):
-    if direction == "R":
-        if int(test.locX) + test.width == int(block.locX) and block.locY - test.height < test.locY < block.locY + block.height:
-            return True
-        else:
-            return False
-    if direction == "L":
-        if int(test.locX) == int(block.locX) + block.width and block.locY - test.height < test.locY < block.locY + block.height:
-            return True
-        else:
-            return False
-    if direction == "U":
-        if block.locY + (block.height / 2) < test.locY <= block.locY + block.height and block.locX - test.width < test.locX < block.locX + block.width:
-            return True
-        else:
-            return False
-    if direction == "D":
-        if block.locY - test.height <= test.locY < block.locY + (block.height / 2) - test.height and block.locX - test.width < test.locX < block.locX + block.width:
-            return True
-        else:
-            return False
+    if direction == 'R':
+        return int(test.locX) + test.width == int(block.locX) and block.locY - test.height < test.locY < block.locY + block.height
+    if direction == 'L':
+        return int(test.locX) == int(block.locX) + block.width and block.locY - test.height < test.locY < block.locY + block.height
+    if direction == 'U':
+        return block.locY + (block.height / 2) < test.locY <= block.locY + block.height and block.locX - test.width < test.locX < block.locX + block.width
+    if direction == 'D':
+        return block.locY - test.height <= test.locY < block.locY + (block.height / 2) - test.height and block.locX - test.width < test.locX < block.locX + block.width
         
 def canMove(direction, test, blockers, wallBlock):
     objects[level].append(player)
     blockChecks = []
     for x in objects[level]:
-        if isinstance(x, blockers) and not (test.locX == x.locX and test.locY == x.locY and test.width == x.width and test.height == x.height):
+        if isinstance(x, blockers) and not x is test:
             blockChecks.append(oneBlock(direction, test, x))
     if wallBlock:
         for wall in walls[level]:
             blockChecks.append(oneBlock(direction, test, wall))
     objects[level].remove(player)
-    if (direction == "L" and test.locX == 0) or (direction == "D" and test.locX < 0):
+    if (direction == 'L' and test.locX <= 0) or (direction == 'D' and test.locX < 0):
         blockChecks.append(True)  
-    if any(blockChecks) == True:
-        return False
-    else:
-        return True
+    return not any(blockChecks)
         
 def winCheck():
     if player.locX > displayWidth + 2:
@@ -617,7 +553,7 @@ def winCheck():
         global screenColor
         global gravSwapColor
         level += 1
-        gravity = "D"
+        gravity = 1
         screenColor = lightBlue
         gravSwapColor = lightGreen
 
@@ -627,26 +563,25 @@ def winCheck():
         
 def upReleased():
     keyPressed = pygame.key.get_pressed()
-    if keyPressed[pygame.K_UP]:
-        return False
-    else:
-        return True
+    return not keyPressed[pygame.K_UP]
 
 def spawnSpot():
     if level > 0:
         player.locX = 0
-    if level == 1:
-        player.locY = 320
-    if level == 2:
-        player.locY = 480
-    if level == 3 or level == 4 or level == 5:
-        player.locY = 440
+    switch = {
+        1: 320,
+        2: 480,
+        3: 440,
+        4: 440,
+        5: 440
+    }
+    player.locY = switch.get(level, 80)
     
 #set up
 player = Player(playerColor, 200, 420, 20, 40)
 spawnSpot()
 
-walls0 = [Wall(300, 460, 200, 40), Wall(0, 0, 800, 40), Wall(0, 580, 800, 20)]
+walls0 = [Wall(300, 440, 200, 40), Wall(0, 0, 800, 40), Wall(0, 580, 800, 20)]
 walls1 = [Wall(0, 520, 800, 80), Wall(180, 300, 40, 140), Wall(0, 360, 80, 160), Wall(700, 360, 100, 160), Wall(370, 400, 75, 40), Wall(485, 400, 215, 120), Wall(370, 500, 115, 20), Wall(0, 0, 520, 300), Wall(520, 0, 300, 200), Wall(780, 200, 20, 80)]
 walls2 = [Wall(0, 520, 800, 80), Wall(0, 0, 40, 440), Wall(40, 0, 760, 80), Wall(200, 240, 60, 280), Wall(220, 80, 140, 40), Wall(100, 240, 100, 40), Wall(300, 240, 60, 230), Wall(300, 120, 30, 120), Wall(760, 80, 40, 320), Wall(720, 340, 40, 40), Wall(510, 280, 100, 40), Wall(720, 80, 40, 40), Wall(720, 480, 80, 40)]
 walls3 = [Wall(0, 520, 800, 80), Wall(0, 0, 760, 80), Wall(760, 0, 40, 400), Wall(0, 80, 40, 320), Wall(520, 360, 240, 40), Wall(360, 200, 320, 40), Wall(320, 200, 40, 200), Wall(280, 280, 40, 120), Wall(240, 320, 40, 80), Wall(720, 300, 40, 60), Wall(720, 80, 40, 40), Wall(0, 480, 80, 40), Wall(40, 80, 40, 40), Wall(640, 140, 40, 60), Wall(440, 240, 40, 40), Wall(360, 240, 80, 200)]
@@ -657,13 +592,13 @@ walls7 = [Wall(0, 560, 480, 40), Wall(480, 520, 320, 80), Wall(0, 80, 20, 400), 
 walls8 = [Wall(0, 520, 800, 80)]
 walls = [walls0, walls1, walls2, walls3, walls4, walls5, walls6, walls7, walls8]
 
-objects0 = [Block(400, 300), GravSwap("V", 400, 530), Treadmill("clock", 180, 460, 120), PlateDoor(red, "U", 300, 500, 40, 200, 40, 40, 760, 200), PlateDoor(blue, "D", 300, 455, 40, 160, 40, 40, 760, 160)]
-objects1 = [Block(425, 320), PlateDoor(red, "D", 100, 515, 780, 280, 20, 80, 780, 200)]
-objects2 = [Block(520, 440), GravSwap("V", 150, 490), GravSwap("V", 435, 490), GravSwap("V", 435, 110), GravSwap("V", 260, 150), PlateDoor(red, "U", 530, 80, 760, 400, 40, 80, 760, 320)]
-objects3 = [Block(320, 120), Block(110, 440), GravSwap("H", 730, 220), GravSwap("V", 430, 110), GravSwap("H", 70, 370), PlateDoor(red, "U", 120, 80, 520, 400, 40, 120, 320, 400), PlateDoor(blue, "D", 370, 515, 520, 80, 40, 120, 520, 240)]
-objects4 = [Block(225, 440), Block(560, 440), GravSwap("V", 265, 390), GravSwap("V", 190, 210), PlateDoor(red, "D", 100, 515, 760, 180, 40, 140, 760, 40), PlateDoor(blue, "D", 235, 315, 470, 420, 60, 100, 470, 320)]
-objects5 = [Block(40, 160), GravSwap("V", 690, 490), GravSwap("V", 240, 450), GravSwap("V", 450, 490), Treadmill("counter", 320, 320, 440), Treadmill("clock", 40, 480, 160), Treadmill("counter", 40, 40, 720), PlateDoor(red, "D", 200, 235, 280, 400, 40, 80, 280, 320), PlateDoor(blue, "U", 420, 400, 280, 80, 40, 80, 280, 160), PlateDoor(green, "D", 410, 195, 580, 440, 40, 80, 580, 520), PlateDoor(yellow, "D", 610, 195, 760, 440, 40, 80, 760, 520)]
-objects6 = [Block(520, 460), Treadmill("counter", 600, 520, 200)]
+objects0 = [Block(400, 280), GravSwap('V', 480, 510), GravSwap('V', 400, 410), GravSwap('V', 400, 70), Treadmill('R', 180, 460, 120), PlateDoor(red, 'U', 300, 480, 40, 200, 40, 40, 760, 200), PlateDoor(blue, 'D', 300, 435, 40, 160, 40, 40, 760, 160)]
+objects1 = [Block(425, 320), PlateDoor(red, 'D', 100, 515, 780, 280, 20, 80, 780, 200)]
+objects2 = [Block(520, 440), GravSwap('V', 150, 490), GravSwap('V', 435, 490), GravSwap('V', 435, 110), GravSwap('V', 260, 150), PlateDoor(red, 'U', 530, 80, 760, 400, 40, 80, 760, 320)]
+objects3 = [Block(320, 120), Block(110, 440), GravSwap('H', 730, 220), GravSwap('V', 430, 110), GravSwap('H', 70, 370), PlateDoor(red, 'U', 120, 80, 520, 400, 40, 120, 320, 400), PlateDoor(blue, 'D', 370, 515, 520, 80, 40, 120, 520, 240)]
+objects4 = [Block(225, 440), Block(560, 440), GravSwap('V', 265, 390), GravSwap('V', 190, 210), PlateDoor(red, 'D', 100, 515, 760, 180, 40, 140, 760, 40), PlateDoor(blue, 'D', 235, 315, 470, 420, 60, 100, 470, 320)]
+objects5 = [Block(40, 160), GravSwap('V', 690, 490), GravSwap('V', 240, 450), GravSwap('V', 450, 490), Treadmill('L', 320, 320, 440), Treadmill('R', 40, 480, 160), Treadmill('L', 40, 40, 720), PlateDoor(red, 'D', 200, 235, 280, 400, 40, 80, 280, 320), PlateDoor(blue, 'U', 420, 400, 280, 80, 40, 80, 280, 160), PlateDoor(green, 'D', 410, 195, 580, 440, 40, 80, 580, 520), PlateDoor(yellow, 'D', 610, 195, 760, 440, 40, 80, 760, 520)]
+objects6 = [Block(520, 460), Treadmill('L', 600, 520, 200)]
 objects7 = [Block(200, 480)]
 objects8 = []
 objects = [objects0, objects1, objects2, objects3, objects4, objects5, objects6, objects7, objects8]
@@ -675,15 +610,8 @@ pygame.display.update()
 
 #gamegame
 running = True
-timer = 0
 while running:
-
-    timer += 1
-    if timer == 2000:
-        timer = 0
-    else:
-        continue
-
+    startT = time.time()
     #quitting
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -702,6 +630,9 @@ while running:
     for x in objects[level]:
         x.update()
 
-
+    if time.time() - startT <= 1 / FPS:
+        time.sleep(1 / FPS - time.time() + startT)
+    else:
+        print("lag")
     reDraw()
     
