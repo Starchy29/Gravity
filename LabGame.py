@@ -9,8 +9,6 @@ import math
 ls
 git commit -am "message"
 git push
-
-git add <filename>
 """
 black = (10, 10, 10)
 white = (255, 255, 255)
@@ -28,8 +26,8 @@ lightGrey = (205, 205, 205)
 orange = (255, 180, 40)
 
 #starting variables
-displayWidth = 800
-displayHeight = 600
+displayWidth = 1200
+displayHeight = 900
 screenColor = lightBlue
 gravity = 1
 FPS = 120.0
@@ -100,7 +98,7 @@ class Player(object):
 
         #offscreen pushing
         if self.locX < 0:
-            self.locX += 0.5
+            self.locX += 1
 
         fixPos(self, (Block, Treadmill, PlateDoor, Wall))
             
@@ -240,19 +238,19 @@ class PlateDoor(object):
             if self.locY > self.doorEndY:
                 self.movingU = True
                 if self.canMoveU:
-                    self.locY -= 6
+                    self.locY = self.doorEndY if self.locY - self.doorEndY < 6 else self.locY - 6
             if self.locY < self.doorEndY:
                 self.movingD = True
                 if self.canMoveD:
-                    self.locY += 6
+                    self.locY = self.doorEndY if self.doorEndY - self.locY < 6 else self.locY + 6
             if self.locX > self.doorEndX:
                 self.movingL = True
                 if self.canMoveL:
-                    self.locX -= 6
+                    self.locX = self.doorEndX if self.locX - self.doorEndX < 6 else self.locX - 6
             if self.locX < self.doorEndX:
                 self.movingR = True
                 if self.canMoveR:
-                    self.locX += 6
+                    self.locX = self.doorEndX if self.doorEndX - self.locX< 6 else self.locX + 6
 
             self.plateHeight = 2
             if self.pressDir == 'D':
@@ -261,19 +259,19 @@ class PlateDoor(object):
             if self.locY > self.doorStartY:
                 self.movingU = True
                 if self.canMoveU:
-                    self.locY -= 6
+                    self.locY = self.doorStartY if self.locY - self.doorStartY < 6 else self.locY - 6
             if self.locY < self.doorStartY:
                 self.movingD = True
                 if self.canMoveD:
-                    self.locY += 6
+                    self.locY = self.doorStartY if self.doorStartY - self.locY < 6 else self.locY + 6
             if self.locX > self.doorStartX:
                 self.movingL = True
                 if self.canMoveL:
-                    self.locX -= 6
+                    self.locX = self.doorStartX if self.locX - self.doorStartX < 6 else self.locX - 6
             if self.locX < self.doorStartX:
                 self.movingR = True
                 if self.canMoveR:
-                    self.locX += 6
+                    self.locX = self.doorStartX if self.doorStartX - self.locX< 6 else self.locX + 6
 
             self.plateImageY = self.plateLocY
             self.plateHeight = 5
@@ -344,7 +342,6 @@ class Treadmill(object):
     lineX2 = 0
     angle1 = 0
     angle2 = 0
-    color = black
     
     def __init__(self, rotation, locX, locY, width):
         self.rotation = rotation
@@ -358,17 +355,17 @@ class Treadmill(object):
         pygame.draw.rect(screen, black, (self.locX + 20, self.locY, self.width - 40, self.height), 0)
         pygame.draw.circle(screen, black, (self.locX + 20, self.locY + 20), 20, 0)
         pygame.draw.circle(screen, black, (self.locX + self.width - 20, self.locY + 20), 20, 0)
-        self.color = lightRed if self.rotation == 'R' else purple
-        pygame.draw.rect(screen, self.color, (self.locX + 20, self.locY + 10, self.width - 40, self.height - 20), 0)
-        pygame.draw.circle(screen, self.color, (self.locX + 20, self.locY + 20), 10, 0)
-        pygame.draw.circle(screen, self.color, (self.locX + self.width - 20, self.locY + 20), 10, 0)
+        color = lightRed if self.rotation == 'R' else purple
+        pygame.draw.rect(screen, color, (self.locX + 20, self.locY + 10, self.width - 40, self.height - 20), 0)
+        pygame.draw.circle(screen, color, (self.locX + 20, self.locY + 20), 10, 0)
+        pygame.draw.circle(screen, color, (self.locX + self.width - 20, self.locY + 20), 10, 0)
         
     def drawLines(self, color):
         if self.rotation == 'R':
             self.lineX1 = self.locX + self.spinState
             self.lineX2 = self.locX + self.width - self.spinState
             for x in range(self.numberLines):
-                pygame.draw.line(screen, color, (self.lineX1, self.locY), (self.lineX1, self.locY + 10), 1)
+                pygame.draw.line(screen, color, (self.lineX1, self.locY), (self.lineX1, self.locY + 9), 1)
                 self.lineX1 += 20
                 pygame.draw.line(screen, color, (self.lineX2, self.locY + 30), (self.lineX2, self.locY + 39), 1)
                 self.lineX2 -= 20
@@ -383,7 +380,7 @@ class Treadmill(object):
             self.lineX1 = self.locX + self.width - self.spinState
             self.lineX2 = self.locX + self.spinState
             for x in range(self.numberLines):
-                pygame.draw.line(screen, color, (self.lineX1, self.locY), (self.lineX1, self.locY + 10), 1)
+                pygame.draw.line(screen, color, (self.lineX1, self.locY), (self.lineX1, self.locY + 9), 1)
                 self.lineX1 -= 20
                 pygame.draw.line(screen, color, (self.lineX2, self.locY + 30), (self.lineX2, self.locY + 39), 1)
                 self.lineX2 += 20
@@ -435,9 +432,10 @@ def drawLevel():
     for x in objects[level]:
         if not isinstance(x, GravSwap):
             x.draw()
-    player.draw()
     for x in walls[level]:
         pygame.draw.rect(screen, black, (x.locX, x.locY, x.width, x.height), 0)
+    player.draw()
+    
 
 redrawers = []
 def reDraw():
@@ -497,12 +495,12 @@ def reDraw():
     
 def gravCover(y):
     for x in objects[level]:
-        if isinstance(x, GravSwap) and x.locX - 30 - y.width <= y.locX <= x.locX + 30 and x.locY - 30 - y.height <= y.locY <= x.locY + 32:
+        if isinstance(x, GravSwap) and x.locX - 30 - y.width <= y.startX <= x.locX + 30 and x.locY - 30 - y.height <= y.startY <= x.locY + 30:
             x.draw()
 
 def plateCover(y):
     for x in objects[level]:
-        if isinstance(x, PlateDoor) and x.plateLocX - y.width <= y.locX <=  x.plateLocX + x.plateWidth and x.plateImageY - y.height <= y.locY <=  x.plateImageY + x.plateHeight + 1:
+        if isinstance(x, PlateDoor) and x.plateLocX - y.width <= y.startX <=  x.plateLocX + x.plateWidth and x.plateImageY - y.height <= y.startY <=  x.plateImageY + x.plateHeight:
             global redrawers
             redrawers.append(x)
 
@@ -516,7 +514,7 @@ def fixPos(obj, blockers):
                     obj.locX = block.locX + block.width
                 elif obj.startX < block.locX - obj.width:
                     obj.locX = block.locX - obj.width
-                if obj.startY >= block.locY + block.height: #Ys get the equal to prevent crunch jankiness
+                if obj.startY >= block.locY + block.height: #Ys get the equal to prevent horizontal crunch jankiness (be careful with vertical)
                     obj.locY = block.locY + block.height
                 elif obj.startY <= block.locY - obj.height:
                     obj.locY = block.locY - obj.height
@@ -567,13 +565,13 @@ def upReleased():
 
 def spawnSpot():
     if level > 0:
-        player.locX = 0
+        player.locX = -20
     switch = {
-        1: 320,
-        2: 480,
-        3: 440,
-        4: 440,
-        5: 440
+        1: 360,
+        2: 760,
+        3: 640,
+        4: 620,
+        5: 780
     }
     player.locY = switch.get(level, 80)
     
@@ -581,23 +579,23 @@ def spawnSpot():
 player = Player(playerColor, 200, 420, 20, 40)
 spawnSpot()
 
-walls0 = [Wall(300, 440, 200, 40), Wall(0, 0, 800, 40), Wall(0, 580, 800, 20)]
-walls1 = [Wall(0, 520, 800, 80), Wall(180, 300, 40, 140), Wall(0, 360, 80, 160), Wall(700, 360, 100, 160), Wall(370, 400, 75, 40), Wall(485, 400, 215, 120), Wall(370, 500, 115, 20), Wall(0, 0, 520, 300), Wall(520, 0, 300, 200), Wall(780, 200, 20, 80)]
-walls2 = [Wall(0, 520, 800, 80), Wall(0, 0, 40, 440), Wall(40, 0, 760, 80), Wall(200, 240, 60, 280), Wall(220, 80, 140, 40), Wall(100, 240, 100, 40), Wall(300, 240, 60, 230), Wall(300, 120, 30, 120), Wall(760, 80, 40, 320), Wall(720, 340, 40, 40), Wall(510, 280, 100, 40), Wall(720, 80, 40, 40), Wall(720, 480, 80, 40)]
-walls3 = [Wall(0, 520, 800, 80), Wall(0, 0, 760, 80), Wall(760, 0, 40, 400), Wall(0, 80, 40, 320), Wall(520, 360, 240, 40), Wall(360, 200, 320, 40), Wall(320, 200, 40, 200), Wall(280, 280, 40, 120), Wall(240, 320, 40, 80), Wall(720, 300, 40, 60), Wall(720, 80, 40, 40), Wall(0, 480, 80, 40), Wall(40, 80, 40, 40), Wall(640, 140, 40, 60), Wall(440, 240, 40, 40), Wall(360, 240, 80, 200)]
-walls4 = [Wall(0, 520, 800, 80), Wall(0, 0, 800, 180), Wall(0, 180, 40, 220), Wall(0, 480, 80, 40), Wall(40, 180, 40, 40), Wall(470, 180, 30, 40), Wall(720, 480, 40, 40), Wall(470, 320, 30, 100), Wall(500, 180, 30, 240), Wall(215, 320, 100, 40), Wall(760, 320, 40, 200)]
-walls5 = [Wall(0, 520, 800, 80), Wall(0, 0, 800, 40), Wall(0, 480, 40, 40), Wall(200, 480, 120, 40), Wall(0, 40, 40, 360), Wall(40, 240, 280, 160), Wall(760, 40, 40, 400), Wall(280, 160, 40, 80), Wall(320, 360, 440, 40), Wall(580, 400, 180, 40), Wall(400, 200, 80, 40), Wall(600, 200, 80, 40)]
+walls0 = [Wall(0, 0, 1200, 40), Wall(0, 860, 1200, 40)]
+walls1 = [Wall(0, 0, 1200, 320), Wall(0, 700, 1200, 200), Wall(0, 400, 300, 300), Wall(400, 320, 80, 300), Wall(1100, 480, 100, 220), Wall(680, 600, 120, 40), Wall(830, 600, 270, 100), Wall(480, 320, 335, 180), Wall(1060, 560, 40, 40)]
+walls2 = [Wall(0, 0, 1200, 100), Wall(0, 800, 1200, 100), Wall(0, 100, 80, 620), Wall(400, 300, 80, 500), Wall(160, 300, 240, 80), Wall(600, 100, 80, 640), Wall(480, 100, 120, 40), Wall(680, 100, 40, 40), Wall(680, 660, 40, 80), Wall(1120, 760, 80, 40), Wall(1160, 100, 40, 540), Wall(1120, 100, 40, 420), Wall(870, 440, 100, 40)]
+walls3 = [Wall(0, 0, 1200, 120), Wall(0, 720, 1200, 180), Wall(0, 680, 80, 40), Wall(0, 120, 40, 480), Wall(1160, 120, 40, 480), Wall(360, 520, 80, 80), Wall(600, 280, 400, 200), Wall(440, 440, 80, 160), Wall(520, 360, 80, 240), Wall(600, 480, 100, 160), Wall(40, 120, 40, 40), Wall(800, 560, 360, 40), Wall(960, 120, 40, 40), Wall(960, 240, 40, 40), Wall(1120, 200, 40, 40), Wall(1000, 320, 40, 40), Wall(1120, 440, 40, 40)]
+walls4 = [Wall(0, 0, 1200, 200), Wall(0, 700, 1200, 200), Wall(0, 200, 80, 380), Wall(1120, 500, 80, 200), Wall(1120, 200, 80, 220), Wall(640, 200, 80, 200), Wall(0, 660, 120, 40), Wall(80, 200, 40, 40), Wall(600, 200, 40, 40), Wall(1080, 660, 40, 40), Wall(600, 320, 60, 260), Wall(300, 400, 80, 40)]
+walls5 = [Wall(0, 0, 1200, 80), Wall(0, 820, 80, 80), Wall(80, 860, 320, 40), Wall(400, 820, 800, 80), Wall(0, 80, 80, 660), Wall(1120, 80, 80, 660), Wall(80, 660, 1040, 80), Wall(400, 200, 80, 460), Wall(760, 350, 80, 40)]
 walls6 = [Wall(0, 520, 600, 80), Wall(600, 560, 200, 40), Wall(0, 0, 800, 80), Wall(0, 80, 40, 360), Wall(760, 80, 40, 340), Wall(680, 80, 80, 260), Wall(600, 80, 80, 340)]
 walls7 = [Wall(0, 560, 480, 40), Wall(480, 520, 320, 80), Wall(0, 80, 20, 400), Wall(0, 0, 800, 80), Wall(780, 320, 20, 200), Wall(760, 480, 20, 40), Wall(600, 80, 40, 360), Wall(780, 80, 20, 120), Wall(170, 200, 200, 40)]
 walls8 = [Wall(0, 520, 800, 80)]
 walls = [walls0, walls1, walls2, walls3, walls4, walls5, walls6, walls7, walls8]
 
-objects0 = [Block(400, 280), GravSwap('V', 480, 510), GravSwap('V', 400, 410), GravSwap('V', 400, 70), Treadmill('R', 180, 460, 120), PlateDoor(red, 'U', 300, 480, 40, 200, 40, 40, 760, 200), PlateDoor(blue, 'D', 300, 435, 40, 160, 40, 40, 760, 160)]
-objects1 = [Block(425, 320), PlateDoor(red, 'D', 100, 515, 780, 280, 20, 80, 780, 200)]
-objects2 = [Block(520, 440), GravSwap('V', 150, 490), GravSwap('V', 435, 490), GravSwap('V', 435, 110), GravSwap('V', 260, 150), PlateDoor(red, 'U', 530, 80, 760, 400, 40, 80, 760, 320)]
-objects3 = [Block(320, 120), Block(110, 440), GravSwap('H', 730, 220), GravSwap('V', 430, 110), GravSwap('H', 70, 370), PlateDoor(red, 'U', 120, 80, 520, 400, 40, 120, 320, 400), PlateDoor(blue, 'D', 370, 515, 520, 80, 40, 120, 520, 240)]
-objects4 = [Block(225, 440), Block(560, 440), GravSwap('V', 265, 390), GravSwap('V', 190, 210), PlateDoor(red, 'D', 100, 515, 760, 180, 40, 140, 760, 40), PlateDoor(blue, 'D', 235, 315, 470, 420, 60, 100, 470, 320)]
-objects5 = [Block(40, 160), GravSwap('V', 690, 490), GravSwap('V', 240, 450), GravSwap('V', 450, 490), Treadmill('L', 320, 320, 440), Treadmill('R', 40, 480, 160), Treadmill('L', 40, 40, 720), PlateDoor(red, 'D', 200, 235, 280, 400, 40, 80, 280, 320), PlateDoor(blue, 'U', 420, 400, 280, 80, 40, 80, 280, 160), PlateDoor(green, 'D', 410, 195, 580, 440, 40, 80, 580, 520), PlateDoor(yellow, 'D', 610, 195, 760, 440, 40, 80, 760, 520)]
+objects0 = [Block(400, 400), PlateDoor(red, 'D', 600, 855, 0, 0, 0, 0, 0, 0)]
+objects1 = [Block(775, 520), PlateDoor(red, 'D', 320, 695, 1160, 320, 40, 160, 1160, 160)]
+objects2 = [Block(720, 720), GravSwap('V', 350, 770), GravSwap('V', 540, 170), GravSwap('V', 780, 130), GravSwap('V', 920, 770), PlateDoor(red, 'U', 890, 100, 1160, 640, 40, 120, 1160, 420)]
+objects3 = [Block(240, 640), Block(680, 200), GravSwap('V', 140, 690), GravSwap('V', 800, 150), GravSwap('H', 1070, 340), PlateDoor(red, 'U', 180, 120, 800, 600, 40, 120, 440, 600), PlateDoor(blue, 'D', 620, 715, 960, 160, 40, 80, 960, 80)]
+objects4 = [Block(430, 620), Block(860, 620), GravSwap('V', 340, 670), GravSwap('V', 470, 230), PlateDoor(red, 'D', 310, 395, 600, 580, 60, 120, 600, 470), PlateDoor(blue, 'D', 160, 695, 1120, 420, 40, 80, 1120, 340)]
+objects5 = [Block(80, 580), GravSwap('V', 440, 790), GravSwap('V', 660, 790), GravSwap('V', 980, 790), Treadmill('R', 80, 820, 320), Treadmill('L', 80, 80, 1040), Treadmill('L', 480, 620, 640), PlateDoor(red, 'D', 320, 655, 480, 740, 40, 80, 480, 660), PlateDoor(blue, 'U', 630, 740, 400, 120, 80, 80, 400, 200), PlateDoor(green, 'D', 770, 345, 800, 740, 40, 80, 800, 660), PlateDoor(yellow, 'U', 770, 390, 1120, 740, 40, 80, 1120, 660)]
 objects6 = [Block(520, 460), Treadmill('L', 600, 520, 200)]
 objects7 = [Block(200, 480)]
 objects8 = []
