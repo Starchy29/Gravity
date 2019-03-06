@@ -20,8 +20,8 @@ lightPurple = (255, 170, 205)
 lightGreen = (130, 255, 130)
 lightRed = (230, 60, 60)
 purple = (180, 30, 230)
-playerColor = (160, 10, 200)
 lightGrey = (205, 205, 205)
+grey = (150, 150, 150)
 orange = (255, 180, 40)
 
 #starting variables
@@ -31,11 +31,11 @@ screenColor = lightBlue
 gravity = 1
 treadDir = 1
 FPS = 120.0
-level = 2
+level = 1
 
 #classes
 class Player(object):
-    color = playerColor
+    color = white
     width = 20
     height = 40
     jumping = False
@@ -57,6 +57,7 @@ class Player(object):
 
     stillPress = True
     newPress = False
+    
     def __init__(self, locX, locY):
         self.locX = locX
         self.locY = locY
@@ -105,8 +106,7 @@ class Player(object):
                             
         #gravity swapping
         if canSwap and self.newPress and not canFall and not self.spaceUsed:
-            global screenColor
-            global gravSwapColor
+            global screenColor, gravSwapColor
             gravity *= -1
             screenColor = lightBlue if gravity == 1 else lightGreen
             gravSwapColor = lightGreen if gravity == 1 else lightBlue
@@ -114,6 +114,8 @@ class Player(object):
             self.gravSwapped = True
             self.hasSwapped = True
             self.spaceUsed = True
+            if level == 11 and 740 < self.locX < 800:
+                self.locX = 800
             for x in objects[level]:
                 if isinstance(x, Block):
                     x.fallSpeed = 0
@@ -185,6 +187,7 @@ class Block(object):
     spinning = 'N'
     punchR = 0
     punchL = 0
+    powerPush = False
     
     def __init__(self, locX, locY):
         self.defX = locX
@@ -203,6 +206,7 @@ class Block(object):
         
     def update(self):
         #block checks
+        self.powerPush = False
         self.canMoveR = canMove('R', self)
         self.canMoveL = canMove('L', self)
         self.canMoveU = canMove('U', self)
@@ -281,8 +285,8 @@ class PlateDoor(object):
         self.trigStart = self.triggered
         self.triggered = False
         for block in objects[level]:
-                if isinstance(block, Block):
-                    self.triggerCheck(block)
+            if isinstance(block, Block):
+                self.triggerCheck(block)
         self.triggerCheck(player)
 
         self.pushingR = False
@@ -387,9 +391,7 @@ class GravSwap(object):
             self.newPress = False
         if self.newPress and (self.locX - 20 - player.width <= player.locX <= self.locX + 20 and self.locY - 20 - player.height <= player.locY <= self.locY + 20):
             self.pressed = True
-            global gravity
-            global screenColor
-            global gravSwapColor
+            global gravity, screenColor, gravSwapColor
             gravity *= -1
             screenColor = lightBlue if gravity == 1 else lightGreen
             gravSwapColor = lightGreen if gravity == 1 else lightBlue
@@ -452,8 +454,7 @@ class TreadSwap(object):
             self.stillPress = True
             self.newPress = False
         if self.newPress and not player.spaceUsed and (self.locX - 20 - player.width <= player.locX <= self.locX + 20 and self.locY - 20 - player.height <= player.locY <= self.locY + 20):
-            global treadDir
-            global treadSwapped
+            global treadDir, treadSwapped
             treadDir *= -1
             treadSwapped = True
             player.spaceUsed = True
@@ -583,8 +584,7 @@ def drawLevel():
 redrawers = []
 def reDraw():
     dirtRects = []
-    global redrawers
-    global treadSwapped
+    global redrawers, treadSwapped
     redrawers = []
     rewallers = []
     if player.hasSwapped:
@@ -707,7 +707,9 @@ def push(direction, test, pushSpeed):
     if isinstance(player, test.pushers):
         objects[level].append(player)
     for block in objects[level]:
-        if isinstance(block, test.pushers) and not block is test and oneBlock(direction, test, block) and not block.falling and (block.spinning == 'N' or block.spinning == direction):
+        if isinstance(block, test.pushers) and not block is test and oneBlock(direction, test, block) and not block.falling and (block.spinning == 'N' or block.spinning == direction or isinstance(test, PlateDoor) or (isinstance(test, Block) and test.powerPush)):
+            if isinstance(test, PlateDoor) and isinstance(block, Block):
+                block.powerPush = True
             push(direction, block, pushSpeed)
     if canMove(direction, test):
         if direction == 'R':
@@ -724,10 +726,7 @@ def push(direction, test, pushSpeed):
 
 def winCheck():
     if player.locX > displayWidth + 2:
-        global level
-        global gravity
-        global screenColor
-        global gravSwapColor
+        global level, gravity, screenColor, gravSwapColor
         level += 1
         gravity = 1
         screenColor = lightBlue
@@ -751,7 +750,8 @@ def spawnSpot():
         8: 780,
         9: 700,
         10: 700,
-        11: 730
+        11: 120,
+        12: 730
     }
     player.locY = switch.get(level, 80)
 
@@ -761,10 +761,9 @@ def redo():
             block.locX = block.defX
             block.locY = block.defY
     spawnSpot()
-    global gravity
-    global screenColor
-    global gravSwapColor
+    global gravity, screenColor, gravSwapColor, treadDir
     gravity = 1
+    treadDir = 1
     screenColor = lightBlue
     gravSwapColor = lightGreen
     drawLevel()
@@ -800,10 +799,11 @@ walls6 = [Wall(0, 0, 700, 120), Wall(780, 0, 420, 120), Wall(700, 0, 80, 80), Wa
 walls7 = [Wall(0, 0, 420, 170), Wall(420, 0, 120, 130), Wall(540, 0, 660, 170), Wall(0, 730, 1200, 170), Wall(0, 690, 160, 40), Wall(0, 170, 40, 440), Wall(40, 170, 40, 40), Wall(40, 330, 120, 80), Wall(1160, 490, 40, 280), Wall(1080, 170, 120, 240), Wall(1000, 170, 40, 40), Wall(1040, 170, 40, 320), Wall(880, 690, 280, 40), Wall(600, 430, 120, 40)]
 walls8 = [Wall(0, 0, 1200, 80), Wall(0, 820, 1200, 80), Wall(0, 80, 80, 620), Wall(240, 260, 80, 560), Wall(240, 80, 80, 40), Wall(440, 700, 40, 120), Wall(1120, 80, 80, 420), Wall(1040, 580, 160, 260), Wall(920, 780, 120, 40), Wall(880, 460, 240, 40), Wall(880, 500, 40, 160), Wall(1080, 80, 40, 40), Wall(1080, 420, 40, 40)]
 walls9 = [Wall(0, 0, 1200, 80), Wall(0, 80, 340, 40), Wall(620, 80, 580, 40), Wall(0, 820, 1200, 80), Wall(0, 780, 80, 40), Wall(320, 780, 880, 40), Wall(0, 120, 80, 540), Wall(0, 740, 80, 40), Wall(1120, 240, 80, 540), Wall(1120, 120, 80, 40), Wall(920, 120, 40, 500), Wall(400, 580, 220, 40), Wall(620, 120, 300, 160)]
-walls10 = [Wall(0, 0, 1200, 120), Wall(0, 820, 1200, 80), Wall(0, 120, 80, 540), Wall(0, 740, 120, 40), Wall(480, 120, 160, 560), Wall(1120, 120, 80, 200), Wall(1120, 400, 80, 420), Wall(1000, 740, 120, 80), Wall(0, 780, 560, 40)]
-walls11 = [Wall(0, 0, 1200, 90), Wall(0, 810, 1200, 90), Wall(1000, 90, 200, 320), Wall(920, 90, 80, 160), Wall(960, 650, 240, 160), Wall(1040, 490, 160, 80), Wall(1160, 570, 40, 80), Wall(720, 770, 40, 40), Wall(720, 90, 40, 320), Wall(0, 770, 80, 40), Wall(0, 90, 40, 600), Wall(320, 370, 160, 40)]
-walls12 = []
-walls = [walls0, walls1, walls2, walls3, walls4, walls5, walls6, walls7, walls8, walls9, walls10, walls11, walls12]
+walls10 = [Wall(0, 0, 1200, 120), Wall(0, 820, 1200, 80), Wall(0, 120, 80, 540), Wall(0, 740, 120, 40), Wall(480, 120, 160, 520), Wall(480, 640, 80, 40), Wall(1120, 120, 80, 200), Wall(1120, 400, 80, 420), Wall(1000, 740, 120, 80), Wall(0, 780, 560, 40)]
+walls11 = [Wall(0, 0, 1200, 80), Wall(0, 160, 1200, 80), Wall(0, 820, 1200, 80), Wall(0, 240, 80, 580), Wall(1120, 240, 80, 580), Wall(1040, 400, 80, 40), Wall(500, 620, 200, 40), Wall(580, 500, 40, 120)]
+walls12 = [Wall(0, 0, 1200, 90), Wall(0, 850, 1200, 50), Wall(0, 810, 360, 40), Wall(560, 810, 640, 40), Wall(1040, 90, 160, 320), Wall(920, 90, 120, 160), Wall(960, 650, 240, 160), Wall(1000, 490, 200, 80), Wall(1160, 570, 40, 80), Wall(760, 770, 40, 40), Wall(40, 90, 40, 80), Wall(760, 90, 40, 600), Wall(0, 770, 80, 40), Wall(0, 90, 40, 600), Wall(560, 90, 200, 80), Wall(560, 170, 40, 40), Wall(200, 370, 120, 40), Wall(480, 370, 120, 40)]
+walls13 = []
+walls = [walls0, walls1, walls2, walls3, walls4, walls5, walls6, walls7, walls8, walls9, walls10, walls11, walls12, walls13]
 
 objects0 = [TreadSwap('V', 600, 830), Treadmill('L', 700, 820, 80), Treadmill('R', 400, 820, 80)]
 objects1 = [Block(775, 520), PlateDoor(red, 'D', 320, 695, 1160, 320, 40, 160, 1160, 160)]
@@ -811,14 +811,15 @@ objects2 = [Block(720, 720), GravSwap('V', 350, 770), GravSwap('V', 540, 170), G
 objects3 = [Block(240, 640), Block(680, 200), GravSwap('V', 140, 690), GravSwap('V', 800, 150), GravSwap('H', 1110, 340), PlateDoor(red, 'U', 220, 120, 800, 600, 40, 120, 440, 600), PlateDoor(blue, 'D', 620, 715, 960, 160, 40, 80, 960, 80)]
 objects4 = [Block(430, 620), Block(860, 620), GravSwap('V', 340, 670), GravSwap('V', 510, 230), PlateDoor(red, 'D', 310, 395, 600, 580, 60, 120, 600, 470), PlateDoor(blue, 'D', 160, 695, 1120, 420, 40, 80, 1120, 340)]
 objects5 = [Block(80, 580), GravSwap('V', 440, 790), GravSwap('V', 660, 790), GravSwap('V', 980, 790), Treadmill('R', 80, 820, 160), Treadmill('L', 240, 820, 160), Treadmill('L', 80, 80, 1040), Treadmill('L', 480, 620, 640), PlateDoor(red, 'D', 320, 655, 480, 740, 40, 80, 480, 660), PlateDoor(blue, 'U', 630, 740, 400, 120, 80, 80, 400, 200), PlateDoor(green, 'D', 770, 345, 800, 740, 40, 80, 800, 660), PlateDoor(yellow, 'U', 770, 390, 1120, 740, 40, 80, 1120, 660)]
-objects6 = [Block(700, 700), Block(860, 240), GravSwap('V', 430, 750), GravSwap('V', 210, 150), GravSwap('V', 1010, 630), Treadmill('R', 310, 500, 380), Treadmill('L', 780, 780, 120), Treadmill('L', 780, 320, 160), Treadmill('L', 860, 560, 40), Treadmill('R', 1120, 560, 40), PlateDoor(red, 'D', 930, 775, 1160, 630, 40, 120, 1160, 510), PlateDoor(blue, 'D', 1030, 775, 820, 240, 40, 80, 820, 160), PlateDoor(green, 'U', 420, 120, 700, 80, 80, 40, 700, 640), PlateDoor(yellow, 'D', 30, 735, 780, 600, 80, 40, 700, 600)]
+objects6 = [Block(700, 700), Block(860, 240), GravSwap('V', 430, 750), GravSwap('V', 210, 150), GravSwap('V', 1010, 630), Treadmill('R', 310, 500, 380), Treadmill('L', 780, 780, 120), Treadmill('L', 780, 320, 160), Treadmill('L', 860, 560, 40), Treadmill('R', 1120, 560, 40), PlateDoor(red, 'D', 930, 775, 1160, 630, 40, 120, 1160, 510), PlateDoor(blue, 'D', 1030, 775, 820, 240, 40, 80, 820, 160), PlateDoor(green, 'U', 420, 120, 700, 80, 80, 40, 700, 640), PlateDoor(lightGrey, 'D', 30, 735, 780, 600, 80, 40, 700, 600)]
 objects7 = [Block(80, 250), Block(760, 650), GravSwap('V', 660, 400), GravSwap('V', 660, 500), Treadmill('L', 840, 690, 40), Treadmill('R', 160, 690, 40), Treadmill('L', 520, 430, 80), Treadmill('R', 720, 430, 80), Treadmill('L', 420, 130, 120)]
 objects8 = [GravHolder(160, 790), Block(480, 740), Block(800, 740), PlateDoor(red, 'D', 950, 455, 320, 660, 160, 40, 880, 660), PlateDoor(blue, 'D', 350, 815, 1040, 500, 40, 80, 1040, 580), Treadmill('L', 880, 780, 40)]
 objects9 = [Block(500, 700), Block(940, 700), Treadmill('R', 80, 780, 240), Treadmill('R', 340, 80, 280), PlateDoor(red, 'U', 170, 120, 1120, 160, 40, 80, 1120, 80), Treadmill('L', 80, 120, 40), Treadmill('L', 1080, 740, 40), Treadmill('R', 1080, 120, 40)]
-objects10 = [Block(480, 700), TreadSwap('V', 280, 150), Treadmill('L', 640, 120, 480), Treadmill('L', 560, 780, 440)]
-objects11 = [Block(200, 730), Treadmill('L', 40, 90, 280), Treadmill('L', 520, 90, 200), PlateDoor(blue, 'D', 100, 805, 920, 650, 40, 160, 920, 730), PlateDoor(red, 'D', 640, 805, 1000, 490, 40, 80, 1000, 570), PlateDoor(green, 'D', 1060, 645, 280, 330, 40, 120, 480, 330)]
-objects12 = []
-objects = [objects0, objects1, objects2, objects3, objects4, objects5, objects6, objects7, objects8, objects9, objects10, objects11, objects12]
+objects10 = [Block(480, 700), TreadSwap('V', 280, 150), Treadmill('L', 640, 120, 480), Treadmill('L', 560, 780, 440), Treadmill('R', 560, 640, 80)]
+objects11 = [Block(80, 700), Block(1040, 320), TreadSwap('V', 600, 130), Treadmill('R', 80, 240, 1040), Treadmill('L', 80, 780, 1040), Treadmill('R', 420, 460, 360), PlateDoor(red, 'D', 510, 615, 800, 80, 40, 80, 800, 0), PlateDoor(blue, 'D', 630, 615, 960, 80, 40, 80, 960, 0)]
+objects12 = [Block(200, 730), Block(280, 730), TreadSwap('H', 1130, 610), Treadmill('R', 80, 90, 480), Treadmill('R', 560, 610, 80), Treadmill('L', 480, 690, 80), Treadmill('R', 360, 810, 200), PlateDoor(blue, 'D', 100, 805, 920, 650, 40, 160, 920, 730), PlateDoor(red, 'D', 570, 805, 1000, 250, 40, 160, 1000, 170), PlateDoor(lightGrey, 'D', 10, 765, 760, 770, 40, 40, 360, 770)]
+objects13 = []
+objects = [objects0, objects1, objects2, objects3, objects4, objects5, objects6, objects7, objects8, objects9, objects10, objects11, objects12, objects13]
 
 screen = pygame.display.set_mode((displayWidth, displayHeight))
 pygame.display.set_caption("Gravity")
